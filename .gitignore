@@ -1,0 +1,31 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.iml
+.idea/
+.vscode/
+android/.gradle/
+android/local.properties
+ios/Pods/
+macos/Pods/
+# lock-файлы: см. правило ниже (pubspec.lock нужен)
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Hive (локальная база на десктопе, если появится)
+*.hive
+
+# Подпись приложения — никогда не коммитить
+android/key.properties
+android/app/keystore/
+*.jks
+*.p12
+*.keystore
+
+# Не игнорируем lock-файлы зависимостей приложения
+!pubspec.lock

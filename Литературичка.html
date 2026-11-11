@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#f4f4f5">
+    
+    <title>Заучивание</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Nunito', sans-serif;
+            background-color: #f4f4f5;
+        }
+
+        .no-select {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* Чтобы в поле ввода можно было писать текст */
+        textarea {
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #d4d4d8;
+            border-radius: 9999px;
+        }
+        html.dark .custom-scroll::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+        }
+
+        /* Анимации и стили для строк */
+        .poetry-line {
+            transition: background-color 0.2s ease, transform 0.1s ease, border-color 0.2s ease;
+        }
+
+        .poetry-text {
+            transition: filter 0.3s ease, opacity 0.3s ease;
+            will-change: filter, opacity;
+        }
+        
+        .poetry-line:active:not(.is-hidden) {
+            transform: scale(0.98);
+        }
+
+        /* Состояние: Скрыто */
+        .poetry-line.is-hidden {
+            border-color: rgba(161, 161, 170, 0.4); /* Заметный контур */
+            background-color: #fcfcfc;
+        }
+
+        html.dark .poetry-line.is-hidden {
+            border-color: rgba(161, 161, 170, 0.3);
+            background-color: #18181b; /* zinc-900 */
+        }
+
+        .poetry-line.is-hidden .poetry-text {
+            filter: blur(6px);
+            opacity: 0.6;
+        }
+
+        /* Состояние: Подсказка (когда держим кнопку) */
+        body.reveal-mode .poetry-line.is-hidden {
+            border-color: #f3f4f6; /* Возвращаем стандартный border */
+            background-color: #ffffff;
+        }
+
+        html.dark body.reveal-mode .poetry-line.is-hidden {
+            border-color: #27272a; /* border-zinc-800 */
+            background-color: #18181b; /* zinc-900 */
+        }
+
+        body.reveal-mode .poetry-line.is-hidden .poetry-text {
+            filter: blur(0);
+            opacity: 1;
+        }
+
+        /* Кнопка "Подсмотреть" интерактив */
+        .hint-btn-active {
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            transform: scale(0.97);
+        }
+        
+        html.dark .hint-btn-active {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+    </style>
+</head>
+<body class="relative flex flex-col justify-between h-full w-full text-zinc-900 dark:text-zinc-100 bg-[#f4f4f5] dark:bg-[#09090b] no-select pb-[env(safe-area-inset-bottom,20px)] pt-[env(safe-area-inset-top,0px)] transition-colors duration-300">
+
+    <!-- БОКОВОЕ МЕНЮ (Сохранение стихов) -->
+    <div id="sidebar-backdrop" onclick="toggleMenu()" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
+    <div id="sidebar-menu" class="fixed top-0 left-0 bottom-0 w-[280px] bg-[#f4f4f5] dark:bg-[#09090b] z-50 transform -translate-x-full transition-transform duration-300 flex flex-col shadow-2xl rounded-r-[32px] overflow-hidden">
+        <div class="p-6 bg-white dark:bg-zinc-900 shrink-0 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between transition-colors duration-300">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-zinc-900 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <button onclick="toggleMenu()" class="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 active:bg-zinc-200 dark:active:bg-zinc-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-zinc-600 dark:text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="p-4 shrink-0">
+            <button onclick="saveCurrentPoem()" class="w-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold text-sm py-3.5 rounded-[20px] active:scale-95 transition-all shadow-sm">
+                Сохранить текущий
+            </button>
+        </div>
+        <div id="saved-poems-list" class="flex-1 overflow-y-auto custom-scroll p-4 flex flex-col gap-2 pt-0">
+            <!-- Список сохраненных стихов -->
+        </div>
+    </div>
+
+    <div class="relative z-10 flex flex-col h-full w-full max-w-md mx-auto px-4 pt-4 pb-3 justify-between">
+        
+        <!-- ВКЛАДКА 1: ТЕКСТ -->
+        <main id="view-text" class="flex-1 flex flex-col mb-4 overflow-hidden gap-3">
+            <div class="flex items-center justify-center shrink-0 w-full relative h-10">
+                <!-- Кнопка меню слева -->
+                <button onclick="toggleMenu()" class="absolute left-0 w-10 h-10 flex items-center justify-center rounded-[18px] bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 active:bg-gray-50 dark:active:bg-zinc-800 transition-colors focus:outline-none z-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-zinc-800 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+                <!-- Заголовок по центру -->
+                <h1 class="text-lg font-bold text-zinc-900 dark:text-white tracking-wide">Текст</h1>
+                <!-- Кнопка смены темы справа -->
+                <button onclick="toggleTheme()" class="absolute right-0 w-10 h-10 flex items-center justify-center rounded-[18px] bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 active:bg-gray-50 dark:active:bg-zinc-800 transition-colors focus:outline-none z-10 text-zinc-800 dark:text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                </button>
+            </div>
+            <div class="bg-white dark:bg-zinc-900 rounded-[32px] p-5 flex-1 flex flex-col shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden relative transition-colors duration-300">
+                <textarea id="text-input" class="w-full h-full text-base font-medium leading-relaxed outline-none resize-none placeholder-zinc-400 dark:placeholder-zinc-500 bg-transparent custom-scroll text-zinc-900 dark:text-white pb-14" placeholder="Вставьте текст стихотворения сюда... Разделяйте строфы двойным переносом строки."></textarea>
+                
+                <!-- Кнопка Скопировать -->
+                <button id="btn-copy" onclick="copyText()" class="absolute bottom-4 right-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-4 py-2.5 rounded-[18px] text-sm font-bold shadow-sm active:scale-95 transition-all flex items-center gap-2 z-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <span>Скопировать</span>
+                </button>
+            </div>
+        </main>
+
+        <!-- ВКЛАДКА 2: УЧИТЬ -->
+        <main id="view-learn" class="hidden flex-1 flex flex-col mb-4 overflow-hidden gap-3 relative">
+            
+            <!-- Панель управления строфами -->
+            <div class="bg-white dark:bg-zinc-900 rounded-[24px] p-2 flex items-center justify-between shadow-sm border border-gray-100 dark:border-zinc-800 shrink-0 transition-colors duration-300">
+                <button id="btn-prev" class="w-12 h-10 flex items-center justify-center rounded-[18px] bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold active:bg-zinc-200 dark:active:bg-zinc-700 disabled:opacity-40 disabled:active:bg-zinc-100 dark:disabled:active:bg-zinc-800 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <div class="text-sm font-bold tracking-widest text-zinc-800 dark:text-zinc-200" id="stanza-counter">0 / 0</div>
+                <button id="btn-next" class="w-12 h-10 flex items-center justify-center rounded-[18px] bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-bold active:bg-zinc-200 dark:active:bg-zinc-700 disabled:opacity-40 disabled:active:bg-zinc-100 dark:disabled:active:bg-zinc-800 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Контейнер со строками -->
+            <div id="lines-container" class="flex-1 overflow-y-auto custom-scroll flex flex-col gap-2 pb-2">
+                <!-- Строки генерируются через JS -->
+            </div>
+
+            <!-- Кнопка "Подсмотреть" -->
+            <div class="shrink-0 pt-2">
+                <button id="btn-hint" class="w-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-base py-4 rounded-[24px] transition-all duration-150 ease-out select-none focus:outline-none">
+                    Подсмотреть
+                </button>
+            </div>
+        </main>
+
+        <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
+        <nav class="relative bg-white dark:bg-zinc-900 rounded-[28px] p-1.5 grid grid-cols-2 gap-1.5 shrink-0 shadow-sm border border-gray-100 dark:border-zinc-800 transition-colors duration-300">
+            <div id="nav-indicator" class="absolute top-1.5 bottom-1.5 left-0 rounded-[22px] bg-zinc-900 dark:bg-white transition-all duration-300 ease-out z-0"></div>
+            
+            <button onclick="switchMainView('text', 0)" id="nav-0" class="nav-btn relative z-10 rounded-[22px] py-3.5 flex items-center justify-center text-sm font-bold text-white dark:text-zinc-900 transition-colors focus:outline-none">
+                Текст
+            </button>
+            
+            <button onclick="switchMainView('learn', 1)" id="nav-1" class="nav-btn relative z-10 rounded-[22px] py-3.5 flex items-center justify-center text-sm font-bold text-zinc-400 dark:text-zinc-500 transition-colors focus:outline-none">
+                Учить
+            </button>
+        </nav>
+
+    </div>
+
+    <script>
+        // DOM элементы
+        const textInput = document.getElementById('text-input');
+        const linesContainer = document.getElementById('lines-container');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnNext = document.getElementById('btn-next');
+        const stanzaCounter = document.getElementById('stanza-counter');
+        const btnHint = document.getElementById('btn-hint');
+
+        // Состояние
+        let stanzas = [];
+        let currentStanzaIndex = 0;
+        let savedPoems = [];
+        let currentPoemId = null; // Отслеживает, какой стих из меню сейчас открыт
+
+        // Дефолтный текст
+        textInput.value = `Впишите сюда свой текст.\n\nКаждый блок, отделенный пустой строкой, станет отдельным этапом для заучивания.`;
+
+        // Автосохранение при любом изменении текста
+        textInput.addEventListener('input', () => {
+            // 1. Сохраняем в глобальный черновик (на случай, если стих еще не назван)
+            localStorage.setItem('poetry_app_draft', textInput.value);
+            
+            // 2. Если открыт конкретный стих из бокового меню, моментально обновляем его
+            if (currentPoemId) {
+                const poem = savedPoems.find(p => p.id === currentPoemId);
+                if (poem) {
+                    poem.text = textInput.value;
+                    saveSavedPoems();
+                }
+            }
+        });
+
+        // --- ЛОГИКА ТЕМЫ И КОПИРОВАНИЯ ---
+        function toggleTheme() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        function copyText() {
+            const text = textInput.value;
+            if (!text) return;
+            
+            const btn = document.getElementById('btn-copy');
+            const span = btn.querySelector('span');
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = span.textContent;
+                span.textContent = 'Скопировано!';
+                btn.classList.add('!bg-green-600', '!text-white');
+                btn.classList.remove('dark:bg-white', 'dark:text-zinc-900');
+                
+                setTimeout(() => {
+                    span.textContent = originalText;
+                    btn.classList.remove('!bg-green-600', '!text-white');
+                    btn.classList.add('dark:bg-white', 'dark:text-zinc-900');
+                }, 2000);
+            }).catch(err => {
+                // Запасной план, если clipboard API недоступен
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    span.textContent = 'Скопировано!';
+                    btn.classList.add('!bg-green-600', '!text-white');
+                    btn.classList.remove('dark:bg-white', 'dark:text-zinc-900');
+                    setTimeout(() => {
+                        span.textContent = 'Скопировать';
+                        btn.classList.remove('!bg-green-600', '!text-white');
+                        btn.classList.add('dark:bg-white', 'dark:text-zinc-900');
+                    }, 2000);
+                } catch (e) {}
+                document.body.removeChild(textArea);
+            });
+        }
+
+        // --- ЛОГИКА НАВИГАЦИИ ---
+        function switchMainView(viewName, navIndex) {
+            // Скрытие/показ экранов
+            ['text', 'learn'].forEach(v => {
+                const el = document.getElementById('view-' + v);
+                if (v === viewName) {
+                    el.classList.remove('hidden');
+                    el.classList.add('flex');
+                } else {
+                    el.classList.add('hidden');
+                    el.classList.remove('flex');
+                }
+            });
+
+            // Анимация ползунка
+            const indicator = document.getElementById('nav-indicator');
+            const activeBtn = document.getElementById('nav-' + navIndex);
+            
+            if (indicator && activeBtn) {
+                indicator.style.width = activeBtn.offsetWidth + 'px';
+                indicator.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
+            }
+
+            // Обновление цветов кнопок
+            for (let i = 0; i < 2; i++) {
+                const btn = document.getElementById('nav-' + i);
+                if (i === navIndex) {
+                    btn.className = 'nav-btn relative z-10 rounded-[22px] py-3.5 flex items-center justify-center text-sm font-bold text-white dark:text-zinc-900 transition-colors focus:outline-none';
+                } else {
+                    btn.className = 'nav-btn relative z-10 rounded-[22px] py-3.5 flex items-center justify-center text-sm font-bold text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors focus:outline-none';
+                }
+            }
+
+            // Если переключились на "Учить", парсим текст
+            if (viewName === 'learn') {
+                prepareStanzas();
+                renderCurrentStanza();
+            }
+        }
+
+        // --- ПАРСИНГ ТЕКСТА ---
+        function prepareStanzas() {
+            const raw = textInput.value.trim();
+            if (!raw) {
+                stanzas = [];
+                return;
+            }
+            // Разделяем по двойному переносу строки
+            stanzas = raw.split(/\n\s*\n/).filter(s => s.trim() !== '');
+            
+            if (currentStanzaIndex >= stanzas.length) {
+                currentStanzaIndex = 0;
+            }
+        }
+
+        function renderCurrentStanza() {
+            linesContainer.innerHTML = '';
+            
+            if (stanzas.length === 0) {
+                linesContainer.innerHTML = '<div class="text-zinc-400 text-center mt-10 font-bold text-sm">Текст пуст</div>';
+                stanzaCounter.textContent = '0 / 0';
+                btnPrev.disabled = true;
+                btnNext.disabled = true;
+                return;
+            }
+
+            stanzaCounter.textContent = `${currentStanzaIndex + 1} / ${stanzas.length}`;
+            btnPrev.disabled = currentStanzaIndex === 0;
+            btnNext.disabled = currentStanzaIndex === stanzas.length - 1;
+
+            const lines = stanzas[currentStanzaIndex].split('\n');
+
+            lines.forEach(line => {
+                if (line.trim() === '') return;
+                
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'poetry-line text-base sm:text-lg font-semibold px-5 py-4 rounded-[24px] cursor-pointer bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-sm select-none text-zinc-900 dark:text-white transition-colors duration-300';
+                
+                const textSpan = document.createElement('span');
+                textSpan.className = 'poetry-text block w-full';
+                textSpan.textContent = line;
+                
+                lineDiv.appendChild(textSpan);
+
+                // Клик скрывает/показывает строку
+                lineDiv.addEventListener('click', () => {
+                    lineDiv.classList.toggle('is-hidden');
+                });
+
+                linesContainer.appendChild(lineDiv);
+            });
+            
+            linesContainer.scrollTop = 0;
+        }
+
+        btnPrev.addEventListener('click', () => {
+            if (currentStanzaIndex > 0) {
+                currentStanzaIndex--;
+                renderCurrentStanza();
+            }
+        });
+
+        btnNext.addEventListener('click', () => {
+            if (currentStanzaIndex < stanzas.length - 1) {
+                currentStanzaIndex++;
+                renderCurrentStanza();
+            }
+        });
+
+        // --- ЛОГИКА КНОПКИ "ПОДСМОТРЕТЬ" ---
+        const startHint = (e) => {
+            if(e) e.preventDefault();
+            document.body.classList.add('reveal-mode');
+            btnHint.classList.add('hint-btn-active');
+        };
+
+        const stopHint = (e) => {
+            if(e) e.preventDefault();
+            document.body.classList.remove('reveal-mode');
+            btnHint.classList.remove('hint-btn-active');
+        };
+
+        // Поддержка Touch
+        btnHint.addEventListener('touchstart', startHint, { passive: false });
+        btnHint.addEventListener('touchend', stopHint);
+        btnHint.addEventListener('touchcancel', stopHint);
+
+        // Поддержка Мыши
+        btnHint.addEventListener('mousedown', startHint);
+        btnHint.addEventListener('mouseup', stopHint);
+        btnHint.addEventListener('mouseleave', stopHint);
+        btnHint.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // Пересчет позиции индикатора при ресайзе (ориентации)
+        window.addEventListener('resize', () => {
+            for (let i = 0; i < 2; i++) {
+                const btn = document.getElementById('nav-' + i);
+                if (!btn.classList.contains('text-zinc-400')) {
+                    const indicator = document.getElementById('nav-indicator');
+                    indicator.style.width = btn.offsetWidth + 'px';
+                    indicator.style.transform = `translateX(${btn.offsetLeft}px)`;
+                    break;
+                }
+            }
+        });
+
+        // --- ЛОГИКА МЕНЮ И СОХРАНЕНИЯ ---
+        function toggleMenu() {
+            const backdrop = document.getElementById('sidebar-backdrop');
+            const menu = document.getElementById('sidebar-menu');
+            
+            if (menu.classList.contains('-translate-x-full')) {
+                backdrop.classList.remove('hidden');
+                // Принудительный reflow для анимации
+                void backdrop.offsetWidth;
+                backdrop.classList.remove('opacity-0');
+                menu.classList.remove('-translate-x-full');
+            } else {
+                backdrop.classList.add('opacity-0');
+                menu.classList.add('-translate-x-full');
+                setTimeout(() => {
+                    backdrop.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        function loadSavedPoems() {
+            try {
+                const stored = localStorage.getItem('poetry_app_saved');
+                if (stored) {
+                    savedPoems = JSON.parse(stored);
+                }
+            } catch(e) {
+                savedPoems = [];
+            }
+            renderSavedPoems();
+        }
+
+        function saveSavedPoems() {
+            localStorage.setItem('poetry_app_saved', JSON.stringify(savedPoems));
+        }
+
+        function saveCurrentPoem() {
+            const text = textInput.value.trim();
+            if (!text) return;
+            
+            const title = prompt('Введите название для этого стихотворения:');
+            if (!title) return;
+            
+            const newPoem = {
+                id: Date.now().toString(),
+                title: title,
+                text: text
+            };
+            
+            savedPoems.unshift(newPoem);
+            
+            // Запоминаем этот стих как активный, чтобы автосохранение работало в него
+            currentPoemId = newPoem.id;
+            localStorage.setItem('poetry_app_active_id', currentPoemId);
+            
+            saveSavedPoems();
+            renderSavedPoems();
+        }
+
+        function loadPoem(id) {
+            const poem = savedPoems.find(p => p.id === id);
+            if (poem) {
+                textInput.value = poem.text;
+                
+                // Делаем стих активным
+                currentPoemId = id;
+                localStorage.setItem('poetry_app_active_id', id);
+                localStorage.setItem('poetry_app_draft', poem.text);
+                
+                toggleMenu();
+                switchMainView('text', 0);
+            }
+        }
+
+        function deletePoem(id, event) {
+            event.stopPropagation();
+            if (confirm('Точно удалить этот стих?')) {
+                savedPoems = savedPoems.filter(p => p.id !== id);
+                
+                // Если удаляем активный стих, забываем его ID
+                if (currentPoemId === id) {
+                    currentPoemId = null;
+                    localStorage.removeItem('poetry_app_active_id');
+                }
+                
+                saveSavedPoems();
+                renderSavedPoems();
+            }
+        }
+
+        function renderSavedPoems() {
+            const list = document.getElementById('saved-poems-list');
+            list.innerHTML = '';
+            
+            if (savedPoems.length === 0) {
+                list.innerHTML = '<div class="text-zinc-400 text-center mt-6 font-semibold text-sm">Нет сохраненных стихов</div>';
+                return;
+            }
+            
+            savedPoems.forEach(poem => {
+                const item = document.createElement('div');
+                item.className = 'bg-white dark:bg-zinc-900 rounded-[20px] p-3 pl-4 flex items-center justify-between shadow-sm border border-gray-100 dark:border-zinc-800 active:bg-gray-50 dark:active:bg-zinc-800 transition-colors cursor-pointer';
+                item.onclick = () => loadPoem(poem.id);
+                
+                item.innerHTML = `
+                    <span class="font-bold text-sm text-zinc-800 dark:text-zinc-100 truncate pr-2">${poem.title}</span>
+                    <button onclick="deletePoem('${poem.id}', event)" class="p-2 rounded-full bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 active:bg-red-100 dark:active:bg-red-900/50 transition-colors shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Инициализация
+        window.onload = () => {
+            loadSavedPoems();
+            
+            // Восстанавливаем последний текст из черновика и проверяем, был ли открыт конкретный стих
+            const draft = localStorage.getItem('poetry_app_draft');
+            const activeId = localStorage.getItem('poetry_app_active_id');
+            
+            if (draft !== null) {
+                textInput.value = draft;
+            }
+            if (activeId) {
+                currentPoemId = activeId;
+            }
+
+            // Небольшая задержка, чтобы стили успели примениться и ползунок встал корректно
+            setTimeout(() => switchMainView('text', 0), 10);
+        };
+    </script>
+</body>
+</html>

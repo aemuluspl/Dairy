@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Физика: База</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#121214',
+                        darkCard: '#1e1e22',
+                        darkInput: '#2a2a30'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Скрипт для предотвращения моргания белого фона при загрузке темной темы -->
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body, html {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Nunito', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .liquid-glass {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .liquid-glass-interactive {
+            transition: transform 0.15s ease, background-color 0.3s ease, filter 0.15s ease;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .liquid-glass-interactive:hover:not(:disabled) {
+                filter: brightness(0.95);
+            }
+            html.dark .liquid-glass-interactive:hover:not(:disabled) {
+                filter: brightness(1.2);
+            }
+        }
+
+        .liquid-glass-interactive:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+
+        .option-correct {
+            background-color: #15803d !important;
+            color: #f0fdf4 !important;
+        }
+
+        .option-wrong {
+            background-color: #b91c1c !important;
+            color: #fef2f2 !important;
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #d4d4d8;
+            border-radius: 9999px;
+        }
+        html.dark .custom-scroll::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+        }
+
+        input, textarea {
+            user-select: text;
+        }
+    </style>
+</head>
+<body class="relative flex flex-col justify-between h-full w-full bg-[#f4f4f5] dark:bg-darkBg text-zinc-900 dark:text-zinc-100">
+
+    <div class="relative z-10 flex flex-col h-full w-full max-w-md mx-auto px-4 pt-4 pb-5 justify-between">
+        
+        <header class="flex items-center justify-between gap-2 shrink-0">
+            <div class="flex items-center gap-2">
+                <div class="liquid-glass bg-white dark:bg-darkCard rounded-[20px] px-4 py-2.5 flex items-center gap-2">
+                    <span class="text-sm">🔥</span>
+                    <span id="streak-counter" class="text-sm font-extrabold text-zinc-900 dark:text-white">0</span>
+                </div>
+
+                <div id="mastery-badge" class="liquid-glass bg-white dark:bg-darkCard rounded-[20px] px-4 py-2.5 flex items-center gap-2">
+                    <div id="mastery-dot" class="w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-600"></div>
+                    <span id="mastery-text" class="text-xs font-semibold text-zinc-600 dark:text-zinc-400">0/8</span>
+                </div>
+            </div>
+
+            <!-- Кнопка смены темы -->
+            <button onclick="toggleTheme()" class="liquid-glass-interactive bg-white dark:bg-darkCard rounded-[20px] w-10 h-10 flex items-center justify-center text-zinc-600 dark:text-zinc-400 focus:outline-none">
+                <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+        </header>
+
+        <main id="view-quiz" class="flex-1 flex flex-col justify-center gap-3.5 my-3 overflow-hidden">
+            <div class="liquid-glass bg-white dark:bg-darkCard rounded-[32px] p-6 min-h-[165px] flex flex-col items-center justify-center text-center relative">
+                <span id="question-type-label" class="text-[10px] uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 mb-2 font-bold">Определение</span>
+                <p id="question-text" class="text-base sm:text-lg font-bold text-zinc-900 dark:text-white leading-snug"></p>
+            </div>
+
+            <div id="options-container" class="flex flex-col gap-2.5 w-full">
+                <!-- Кнопки генерируются JS -->
+            </div>
+        </main>
+
+        <main id="view-dictionary" class="hidden flex-1 flex flex-col my-3 overflow-hidden gap-3">
+            <div class="flex items-center justify-between gap-2 shrink-0">
+                <div class="liquid-glass bg-white dark:bg-darkCard rounded-[24px] px-5 py-3 flex-1 flex items-center justify-between">
+                    <span id="dict-title" class="text-sm font-bold text-zinc-900 dark:text-white">База</span>
+                    <span id="dict-count" class="text-xs px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-darkBg text-zinc-700 dark:text-zinc-300 font-bold">0</span>
+                </div>
+                <button onclick="toggleAddForm()" id="btn-open-add" class="liquid-glass-interactive bg-white dark:bg-darkCard rounded-[24px] px-5 py-3 text-sm font-bold text-zinc-900 dark:text-white shrink-0">
+                    + Добавить
+                </button>
+            </div>
+
+            <div id="add-form-panel" class="hidden liquid-glass bg-white dark:bg-darkCard rounded-[32px] p-5 flex-col gap-3 shrink-0">
+                <div class="flex items-center justify-between px-1">
+                    <span id="form-heading" class="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Новое</span>
+                    <button onclick="toggleAddForm()" class="text-xs font-bold text-zinc-400 hover:text-zinc-800 dark:hover:text-white">Отмена</button>
+                </div>
+                <input id="input-title" type="text" placeholder="Название" class="w-full rounded-2xl bg-zinc-100 dark:bg-darkInput px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none" />
+                <input id="input-formula" type="text" placeholder="Формула" class="hidden w-full rounded-2xl bg-zinc-100 dark:bg-darkInput px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none font-mono" />
+                <textarea id="input-desc" rows="2" placeholder="Определение..." class="w-full rounded-2xl bg-zinc-100 dark:bg-darkInput px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none resize-none"></textarea>
+                <button onclick="saveNewItem()" class="rounded-2xl py-3 text-sm font-bold text-white dark:text-darkBg bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors text-center mt-1">
+                    Сохранить
+                </button>
+            </div>
+
+            <div id="dict-list" class="flex-1 overflow-y-auto custom-scroll flex flex-col gap-2.5 pr-1 pb-2">
+                <!-- Список генерируется JS -->
+            </div>
+
+            <div class="shrink-0 flex justify-center pt-1">
+                <div class="liquid-glass bg-white dark:bg-darkCard rounded-[24px] p-1.5 flex items-center w-full relative">
+                    <div id="tumbler-pill" class="absolute top-1.5 bottom-1.5 left-1.5 w-[calc(50%-6px)] rounded-[18px] bg-zinc-900 dark:bg-white transition-transform duration-300 ease-out"></div>
+                    <button onclick="switchDictTab('concepts')" id="tab-concepts" class="relative z-10 w-1/2 py-2.5 text-xs font-bold tracking-wider uppercase transition-colors text-white dark:text-darkBg">
+                        Понятия
+                    </button>
+                    <button onclick="switchDictTab('formulas')" id="tab-formulas" class="relative z-10 w-1/2 py-2.5 text-xs font-bold tracking-wider uppercase transition-colors text-zinc-500 dark:text-zinc-400">
+                        Формулы
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- ЭКРАН 3: Заглушка -->
+        <main id="view-placeholder" class="hidden flex-1 flex flex-col items-center justify-center my-3">
+            <div class="liquid-glass bg-white dark:bg-darkCard rounded-[32px] p-8 text-center max-w-xs flex flex-col items-center gap-3">
+                <div class="w-12 h-12 rounded-[20px] bg-zinc-100 dark:bg-darkBg flex items-center justify-center text-xl font-bold text-zinc-400 dark:text-zinc-500">?</div>
+                <h3 class="text-base font-bold text-zinc-900 dark:text-white">Раздел в разработке</h3>
+            </div>
+        </main>
+
+        <nav class="relative bg-white dark:bg-darkCard rounded-[28px] p-1.5 grid grid-cols-5 gap-1.5 shrink-0">
+            <div id="nav-indicator" class="absolute top-1.5 bottom-1.5 left-0 rounded-[22px] bg-zinc-900 dark:bg-white transition-all duration-300 ease-out z-0"></div>
+            
+            <button onclick="switchMainView('placeholder', 0)" id="nav-0" class="nav-btn relative z-10 rounded-[22px] py-3 flex items-center justify-center text-sm font-bold text-zinc-400 dark:text-zinc-600 transition-colors">?</button>
+            
+            <button onclick="switchMainView('dictionary', 1)" id="nav-1" class="nav-btn relative z-10 rounded-[22px] py-3 flex items-center justify-center text-zinc-400 dark:text-zinc-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+            </button>
+
+            <button onclick="switchMainView('quiz', 2)" id="nav-2" class="nav-btn relative z-10 rounded-[22px] py-3 flex items-center justify-center text-white dark:text-darkBg transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+            </button>
+
+            <button onclick="switchMainView('placeholder', 3)" id="nav-3" class="nav-btn relative z-10 rounded-[22px] py-3 flex items-center justify-center text-sm font-bold text-zinc-400 dark:text-zinc-600 transition-colors">?</button>
+            <button onclick="switchMainView('placeholder', 4)" id="nav-4" class="nav-btn relative z-10 rounded-[22px] py-3 flex items-center justify-center text-sm font-bold text-zinc-400 dark:text-zinc-600 transition-colors">?</button>
+        </nav>
+    </div>
+
+    <div id="delete-modal" class="hidden absolute inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-darkCard w-full max-w-[280px] rounded-[32px] p-6 text-center shadow-xl transform scale-95 transition-transform duration-200" id="delete-modal-card">
+            <div class="w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            </div>
+            <h3 class="text-base font-bold text-zinc-900 dark:text-white mb-2">Удалить карточку?</h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-6">Она больше не будет попадаться в тренажере.</p>
+            <div class="flex gap-2">
+                <button onclick="closeDeleteModal()" class="flex-1 py-3 bg-zinc-100 dark:bg-darkBg text-zinc-700 dark:text-zinc-300 text-sm font-bold rounded-[20px]">Отмена</button>
+                <button onclick="confirmDelete()" class="flex-1 py-3 bg-red-600 text-white text-sm font-bold rounded-[20px]">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Изменил ключ, чтобы обновить базу у пользователя
+        const STORAGE_KEY = 'physics_base_v3';
+        const MASTERY_THRESHOLD = 8;
+
+        const defaultConcepts = [
+            { id: 'c1', term: 'Инерция', definition: 'Явление сохранения скорости тела (или покоя), когда на него не действуют другие силы.', correctCount: 0 },
+            { id: 'c2', term: 'Инертность', definition: 'Свойство тела сопротивляться изменению своей скорости. Чем больше масса, тем оно сильнее.', correctCount: 0 },
+            { id: 'c3', term: 'ИСО', definition: 'Система координат, в которой тело покоится или едет прямо и равномерно.', correctCount: 0 },
+            { id: 'c4', term: '1-й закон Ньютона', definition: 'Если на тело не действуют силы, оно покоится или движется с постоянной скоростью.', correctCount: 0 },
+            { id: 'c5', term: '2-й закон Ньютона', definition: 'Ускорение тела прямо пропорционально силе и обратно пропорционально массе.', correctCount: 0 },
+            { id: 'c6', term: '3-й закон Ньютона', definition: 'Действие равно противодействию: силы возникают парами.', correctCount: 0 },
+            { id: 'c7', term: 'Сила упругости', definition: 'Сила, возникающая при деформации (сжатии, растяжении, изгибе). Всегда направлена так, чтобы вернуть телу исходную форму.', correctCount: 0 },
+            { id: 'c8', term: 'Сила реакции опоры (N)', definition: 'Вид силы упругости. Возникает, когда кладешь предмет на поверхность. Всегда направлена строго перпендикулярно (под прямым углом) вверх от опоры.', correctCount: 0 },
+            { id: 'c9', term: 'Сила натяжения нити (T)', definition: 'Вид силы упругости. Возникает, когда тянешь за веревку или трос. Направлена вдоль самой нити в сторону подвеса (от груза).', correctCount: 0 },
+            { id: 'c10', term: 'Закон Гука', definition: 'Чем сильнее тянешь пружину, тем больше сопротивление. Сила (F) измеряется в Ньютонах (Н), а жесткость пружины (k) — в Н/м.', correctCount: 0 },
+            { id: 'c11', term: 'Упругая деформация', definition: 'Изменение формы, которое полностью исчезает, когда перестают давить или тянуть (как пружина).', correctCount: 0 },
+            { id: 'c12', term: 'Пластическая деформация', definition: 'Изменение формы, которое остается навсегда после снятия силы (как вмятина на пластилине).', correctCount: 0 }
+        ];
+
+        const defaultFormulas = [
+            { id: 'f1', term: 'Второй закон Ньютона', formula: 'F = m × a', definition: 'Связь силы (в Ньютонах), массы тела (в кг) и ускорения (в м/с²).', correctCount: 0 },
+            { id: 'f2', term: 'Третий закон Ньютона', formula: 'F₁ = −F₂', definition: 'Силы взаимодействия двух тел равны и противоположны.', correctCount: 0 },
+            { id: 'f3', term: 'Суперпозиция сил', formula: 'Fрез = F₁ + F₂ + ...', definition: 'Результирующая сила равна векторной сумме всех сил.', correctCount: 0 },
+            { id: 'f4', term: 'Закон Гука', formula: 'Fупр = k × Δx', definition: 'Сила упругости (Н) зависит от жесткости (Н/м) и удлинения (м).', correctCount: 0 }
+        ];
+
+        let state = {
+            streak: 0,
+            concepts: [],
+            formulas: [],
+            activeDictTab: 'concepts',
+            lastQuestionId: null,
+            isLocked: false
+        };
+
+        let itemToDeleteId = null;
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    state.streak = parsed.streak || 0;
+                    state.concepts = Array.isArray(parsed.concepts) && parsed.concepts.length >= 4 ? parsed.concepts : defaultConcepts;
+                    state.formulas = Array.isArray(parsed.formulas) ? parsed.formulas : defaultFormulas;
+                } else {
+                    state.concepts = JSON.parse(JSON.stringify(defaultConcepts));
+                    state.formulas = JSON.parse(JSON.stringify(defaultFormulas));
+                }
+            } catch (e) {
+                state.concepts = JSON.parse(JSON.stringify(defaultConcepts));
+                state.formulas = JSON.parse(JSON.stringify(defaultFormulas));
+            }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    streak: state.streak,
+                    concepts: state.concepts,
+                    formulas: state.formulas
+                }));
+            } catch (e) {}
+        }
+
+        function getQuizPool() {
+            const c = state.concepts.map(x => ({ ...x, promptText: x.definition, answerText: x.term, typeLabel: 'Определение', source: 'concepts' }));
+            const f = state.formulas.map(x => ({ ...x, promptText: `${x.term}: ${x.definition}`, answerText: x.formula, typeLabel: 'Формула', source: 'formulas' }));
+            return [...c, ...f];
+        }
+
+        function pickWeightedQuestion() {
+            const pool = getQuizPool();
+            const validPool = pool.filter(item => pool.filter(p => p.source === item.source).length >= 4);
+            const candidates = validPool.length > 1 ? validPool.filter(item => item.id !== state.lastQuestionId) : validPool;
+
+            const weights = candidates.map(item => {
+                if (item.correctCount >= MASTERY_THRESHOLD) return 1;
+                if (item.correctCount >= 5) return 5;
+                return 12;
+            });
+
+            const totalWeight = weights.reduce((a, b) => a + b, 0);
+            let random = Math.random() * totalWeight;
+
+            for (let i = 0; i < candidates.length; i++) {
+                random -= weights[i];
+                if (random <= 0) return candidates[i];
+            }
+            return candidates[0];
+        }
+
+        function renderNextQuestion() {
+            state.isLocked = false;
+            if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+
+            const currentQ = pickWeightedQuestion();
+            state.lastQuestionId = currentQ.id;
+
+            document.getElementById('streak-counter').textContent = state.streak;
+            updateMasteryBadge(currentQ.correctCount);
+
+            const askReverse = currentQ.source === 'concepts' && Math.random() < 0.35;
+            const sameSourcePool = getQuizPool().filter(p => p.source === currentQ.source);
+            
+            let correctText = '', distractors = [];
+            
+            if (askReverse) {
+                document.getElementById('question-type-label').textContent = 'Понятие';
+                document.getElementById('question-text').textContent = currentQ.answerText;
+                correctText = currentQ.promptText;
+                distractors = sameSourcePool.filter(i => i.id !== currentQ.id).map(i => i.promptText);
+            } else {
+                document.getElementById('question-type-label').textContent = currentQ.typeLabel;
+                document.getElementById('question-text').textContent = currentQ.promptText;
+                correctText = currentQ.answerText;
+                distractors = sameSourcePool.filter(i => i.id !== currentQ.id).map(i => i.answerText);
+            }
+
+            const shuffledDistractors = distractors.sort(() => Math.random() - 0.5).slice(0, 3);
+            const allOptions = [{ text: correctText, isCorrect: true }, ...shuffledDistractors.map(d => ({ text: d, isCorrect: false }))]
+                .sort(() => Math.random() - 0.5);
+
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+
+            allOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'liquid-glass-interactive bg-white dark:bg-darkCard rounded-[24px] px-5 py-4 text-left text-sm sm:text-base font-bold text-zinc-900 dark:text-white w-full flex items-center justify-between gap-3 focus:outline-none';
+                btn.innerHTML = `<span class="leading-snug">${opt.text}</span>`;
+                btn.addEventListener('click', () => handleAnswer(btn, opt.isCorrect, currentQ, container));
+                container.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(clickedBtn, isCorrect, questionObj, container) {
+            if (state.isLocked) return;
+            state.isLocked = true;
+            clickedBtn.blur();
+
+            Array.from(container.children).forEach(b => b.disabled = true);
+
+            const targetList = questionObj.source === 'concepts' ? state.concepts : state.formulas;
+            const itemInState = targetList.find(i => i.id === questionObj.id);
+
+            if (isCorrect) {
+                clickedBtn.classList.add('option-correct');
+                state.streak += 1;
+                if (itemInState) itemInState.correctCount = (itemInState.correctCount || 0) + 1;
+            } else {
+                clickedBtn.classList.add('option-wrong');
+                state.streak = 0;
+                if (itemInState && itemInState.correctCount > 0) itemInState.correctCount -= 1;
+            }
+            
+            if (itemInState) updateMasteryBadge(itemInState.correctCount);
+            document.getElementById('streak-counter').textContent = state.streak;
+            saveState();
+
+            setTimeout(renderNextQuestion, isCorrect ? 500 : 900);
+        }
+
+        function updateMasteryBadge(count) {
+            const dot = document.getElementById('mastery-dot');
+            const text = document.getElementById('mastery-text');
+            if (count >= MASTERY_THRESHOLD) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+                text.textContent = `Выучено`;
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-zinc-300 dark:bg-zinc-600';
+                text.textContent = `${count}/${MASTERY_THRESHOLD}`;
+            }
+        }
+
+        function switchDictTab(tab) {
+            state.activeDictTab = tab;
+            const pill = document.getElementById('tumbler-pill');
+            const tabConcepts = document.getElementById('tab-concepts');
+            const tabFormulas = document.getElementById('tab-formulas');
+            const inputFormula = document.getElementById('input-formula');
+            
+            if (tab === 'concepts') {
+                pill.style.transform = 'translateX(0%)';
+                tabConcepts.className = 'relative z-10 w-1/2 py-2.5 text-xs font-bold tracking-wider uppercase transition-colors text-white dark:text-darkBg';
+                tabFormulas.className = 'relative z-10 w-1/2 py-2.5 text-xs font-bold tracking-wider uppercase transition-colors text-zinc-500 dark:text-zinc-400';
+                inputFormula.classList.add('hidden');
+                document.getElementById('input-title').placeholder = 'Понятие';
+            } else {
+                pill.style.transform = 'translateX(100%)';
+                tabFormulas.className = 'relative z-10 w-1/2 py-2.5 text-xs font-bold tracking-wider uppercase transition-colors text-white dark:text-darkBg';
+                tabConcepts.className = 'relative z-10 w-1/2 py-2.5 text-xs font-bold tracking-wider uppercase transition-colors text-zinc-500 dark:text-zinc-400';
+                inputFormula.classList.remove('hidden');
+                document.getElementById('input-title').placeholder = 'Название';
+            }
+            renderDictionaryList();
+        }
+
+        function renderDictionaryList() {
+            const listEl = document.getElementById('dict-list');
+            const isConcepts = state.activeDictTab === 'concepts';
+            const items = isConcepts ? state.concepts : state.formulas;
+
+            document.getElementById('dict-count').textContent = items.length;
+            listEl.innerHTML = '';
+
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'liquid-glass bg-white dark:bg-darkCard rounded-[24px] p-4 flex flex-col gap-1.5 relative';
+
+                const mastered = (item.correctCount || 0) >= MASTERY_THRESHOLD;
+                const badgeClass = mastered ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-zinc-100 text-zinc-500 dark:bg-darkBg dark:text-zinc-400';
+
+                let deleteBtnHtml = '';
+                if (items.length > 4) {
+                    deleteBtnHtml = `<button onclick="openDeleteModal('${item.id}')" class="text-zinc-300 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 text-xs px-2 py-1 transition-colors">✕</button>`;
+                }
+
+                let formulaHtml = '';
+                if (!isConcepts && item.formula) {
+                    formulaHtml = `<div class="my-1 px-3.5 py-1.5 rounded-[16px] bg-zinc-100 dark:bg-darkBg font-mono text-sm font-bold text-zinc-800 dark:text-zinc-200 inline-block self-start">${item.formula}</div>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-2">
+                        <h4 class="text-sm font-bold text-zinc-900 dark:text-white leading-snug">${item.term}</h4>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <span class="text-[10px] px-2.5 py-0.5 rounded-full font-bold ${badgeClass}">${item.correctCount || 0}/${MASTERY_THRESHOLD}</span>
+                            ${deleteBtnHtml}
+                        </div>
+                    </div>
+                    ${formulaHtml}
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">${item.definition}</p>
+                `;
+                listEl.appendChild(card);
+            });
+        }
+
+        function toggleAddForm() {
+            const panel = document.getElementById('add-form-panel');
+            panel.classList.toggle('hidden');
+            panel.classList.toggle('flex');
+        }
+
+        function saveNewItem() {
+            const term = document.getElementById('input-title').value.trim();
+            const formula = document.getElementById('input-formula').value.trim();
+            const definition = document.getElementById('input-desc').value.trim();
+
+            if (!term || !definition) return;
+            if (state.activeDictTab === 'formulas' && !formula) return;
+
+            const target = state.activeDictTab === 'concepts' ? state.concepts : state.formulas;
+            target.unshift({ id: (state.activeDictTab === 'concepts' ? 'c_' : 'f_') + Date.now(), term, formula, definition, correctCount: 0 });
+
+            document.getElementById('input-title').value = '';
+            document.getElementById('input-formula').value = '';
+            document.getElementById('input-desc').value = '';
+
+            saveState();
+            toggleAddForm();
+            renderDictionaryList();
+        }
+
+        function openDeleteModal(id) {
+            itemToDeleteId = id;
+            const modal = document.getElementById('delete-modal');
+            const card = document.getElementById('delete-modal-card');
+            modal.classList.remove('hidden');
+            setTimeout(() => card.classList.remove('scale-95'), 10);
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('delete-modal');
+            const card = document.getElementById('delete-modal-card');
+            card.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                itemToDeleteId = null;
+            }, 200);
+        }
+
+        function confirmDelete() {
+            if (!itemToDeleteId) return;
+            if (state.activeDictTab === 'concepts') {
+                state.concepts = state.concepts.filter(i => i.id !== itemToDeleteId);
+            } else {
+                state.formulas = state.formulas.filter(i => i.id !== itemToDeleteId);
+            }
+            saveState();
+            renderDictionaryList();
+            closeDeleteModal();
+        }
+
+        function switchMainView(viewName, navIndex) {
+            ['quiz', 'dictionary', 'placeholder'].forEach(v => {
+                const el = document.getElementById('view-' + v);
+                v === viewName ? el.classList.remove('hidden') : el.classList.add('hidden');
+            });
+
+            const indicator = document.getElementById('nav-indicator');
+            const activeBtn = document.getElementById('nav-' + navIndex);
+            
+            if (indicator && activeBtn) {
+                indicator.style.width = activeBtn.offsetWidth + 'px';
+                indicator.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
+            }
+
+            for (let i = 0; i < 5; i++) {
+                const btn = document.getElementById('nav-' + i);
+                if (i === navIndex) {
+                    btn.className = 'nav-btn relative z-10 rounded-[22px] py-3 flex items-center justify-center text-white dark:text-darkBg transition-colors';
+                } else {
+                    btn.className = 'nav-btn relative z-10 rounded-[22px] py-3 flex items-center justify-center text-zinc-400 dark:text-zinc-600 transition-colors';
+                }
+            }
+            if (viewName === 'dictionary') renderDictionaryList();
+            else if (viewName === 'quiz') renderNextQuestion();
+        }
+
+        window.addEventListener('resize', () => {
+            for (let i = 0; i < 5; i++) {
+                const btn = document.getElementById('nav-' + i);
+                if (!btn.classList.contains('text-zinc-400')) {
+                    const indicator = document.getElementById('nav-indicator');
+                    indicator.style.width = btn.offsetWidth + 'px';
+                    indicator.style.transform = `translateX(${btn.offsetLeft}px)`;
+                    break;
+                }
+            }
+        });
+
+        window.onload = () => {
+            loadState();
+            setTimeout(() => switchMainView('quiz', 2), 10);
+        };
+    </script>
+</body>
+</html>
