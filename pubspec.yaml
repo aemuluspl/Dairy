@@ -1,5 +1,5 @@
 name: school_diary
-description: "Дневник — MVP для управления школьным домашним заданием."
+description: "Hash — школьный дневник и домашние задания."
 publish_to: "none"
 version: 1.0.0+1
 

@@ -1,11 +1,11 @@
 {
-    "name": "Дневник",
-    "short_name": "Дневник",
+    "name": "Hash",
+    "short_name": "Hash",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "Дневник — школьное домашнее задание.",
+    "background_color": "#141414",
+    "theme_color": "#141414",
+    "description": "Hash — школьное домашнее задание.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

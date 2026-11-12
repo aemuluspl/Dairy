@@ -15,7 +15,7 @@ class SchoolDiaryApp extends StatelessWidget {
     final state = context.watch<AppState>();
 
     return MaterialApp(
-      title: state.language == AppLanguage.english ? 'Diary' : 'Дневник',
+      title: 'Hash',
       debugShowCheckedModeBanner: false,
       locale: state.language == AppLanguage.english
           ? const Locale('en', 'US')

@@ -271,7 +271,7 @@ class Strings {
   String get exportFormat => _t('Формат экспорта', 'Export format');
   String get schemaVersion => _t('Версия схемы', 'Schema version');
   String get storage => _t('Хранилище', 'Storage');
-  String get footerTitle => _t('Дневник · MVP 1.0.0', 'Diary · MVP 1.0.0');
+  String get footerTitle => 'Hash · 1.0.0';
   String get footerSubtitle => _t(
         'Первый модуль единой информационной базы',
         'First module of a unified database',

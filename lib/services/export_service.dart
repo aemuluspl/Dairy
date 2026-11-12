@@ -37,7 +37,7 @@ class ExportService {
     final payload = <String, dynamic>{
       'format': 'school-diary.unified-db',
       'schemaVersion': schemaVersion,
-      'app': 'Дневник',
+      'app': 'Hash',
       'exportedAt': DateTime.now().toUtc().toIso8601String(),
       'modules': <String, dynamic>{
         'homework': <String, dynamic>{
