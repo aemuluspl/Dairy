@@ -132,44 +132,60 @@ class HomeworkParser {
         .where((word) => word.isNotEmpty)
         .toList(growable: false);
 
-    DateTime target;
+    // День, к которому задана домашка (день урока).
+    DateTime due;
     final explicit = _parseExplicitDate(text, today);
+    // Для дат «по умолчанию» дедлайн можно сдвинуть, если вечер уже прошёл.
+    var flexible = false;
 
     if (explicit != null) {
-      target = explicit;
+      due = explicit;
     } else if (words.any((word) => word.startsWith('послезавтра'))) {
-      target = today.add(const Duration(days: 2));
+      due = today.add(const Duration(days: 2));
     } else if (words.any((word) => word.startsWith('завтра'))) {
-      target = today.add(const Duration(days: 1));
+      due = today.add(const Duration(days: 1));
     } else if (words.any((word) => word.startsWith('сегодня'))) {
-      target = today;
+      due = today;
     } else {
       final weekday = _findWeekday(words);
-      target = weekday != null
-          ? _nextWeekday(today, weekday, now)
-          : _defaultSchoolDate(today);
+      if (weekday != null) {
+        due = _nextWeekday(today, weekday, now);
+      } else {
+        due = _nextSchoolDay(today);
+        flexible = true;
+      }
     }
 
-    // Пятница/суббота + «на понедельник» => домашку делаем в воскресенье вечером.
-    if ((today.weekday == DateTime.friday ||
-            today.weekday == DateTime.saturday) &&
-        target.weekday == DateTime.monday) {
-      target = target.subtract(const Duration(days: 1));
+    // Дедлайн — вечер (20:00) накануне дня урока.
+    var candidate = _eveningBefore(due, today);
+
+    while (flexible && candidate.isBefore(now)) {
+      due = _nextSchoolDay(due);
+      candidate = _eveningBefore(due, today);
     }
 
-    // Любой дедлайн, попавший на субботу, переносится на воскресенье.
-    if (target.weekday == DateTime.saturday) {
-      target = target.add(const Duration(days: 1));
-    }
+    return candidate;
+  }
 
-    if (target.isBefore(today)) target = today;
-
+  /// 20:00 накануне дня урока. Если урок уже сегодня — вечер сегодня.
+  DateTime _eveningBefore(DateTime due, DateTime today) {
+    final previous = due.subtract(const Duration(days: 1));
+    final target = previous.isBefore(today) ? today : previous;
     return DateTime(
       target.year,
       target.month,
       target.day,
       defaultHour,
     );
+  }
+
+  /// Ближайший учебный день строго после [date]. Воскресенье — выходной.
+  DateTime _nextSchoolDay(DateTime date) {
+    var next = date.add(const Duration(days: 1));
+    while (next.weekday == DateTime.sunday) {
+      next = next.add(const Duration(days: 1));
+    }
+    return next;
   }
 
   DateTime? _parseExplicitDate(String text, DateTime today) {
@@ -234,18 +250,5 @@ class HomeworkParser {
     var difference = (weekday - today.weekday) % 7;
     if (difference == 0 && now.hour >= defaultHour) difference = 7;
     return today.add(Duration(days: difference));
-  }
-
-  DateTime _defaultSchoolDate(DateTime today) {
-    switch (today.weekday) {
-      case DateTime.friday:
-        return today.add(const Duration(days: 2)); // воскресенье
-      case DateTime.saturday:
-        return today.add(const Duration(days: 1)); // воскресенье
-      case DateTime.sunday:
-        return today.add(const Duration(days: 1)); // понедельник
-      default:
-        return today.add(const Duration(days: 1));
-    }
   }
 }

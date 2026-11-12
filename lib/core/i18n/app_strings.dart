@@ -131,6 +131,7 @@ class Strings {
         'Add lessons and they will show up here.',
       );
   String get todayBadge => _t('сегодня', 'today');
+  String get dayOff => _t('Выходной', 'Day off');
   String get tomorrowBadge => _t('завтра', 'tomorrow');
   String statusFirstLesson(String time) =>
       _t('Первый урок в $time', 'First lesson at $time');
@@ -271,7 +272,7 @@ class Strings {
   String get exportFormat => _t('Формат экспорта', 'Export format');
   String get schemaVersion => _t('Версия схемы', 'Schema version');
   String get storage => _t('Хранилище', 'Storage');
-  String get footerTitle => 'Hash · 1.0.0';
+  String get footerTitle => 'Hash · 1.0.1';
   String get footerSubtitle => _t(
         'Первый модуль единой информационной базы',
         'First module of a unified database',

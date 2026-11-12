@@ -132,6 +132,25 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.only(top: 6, bottom: 12),
                     buildDefaultDragHandles: false,
+                    // Встроенный «подъём» рисует прямоугольную подложку с тенью —
+                    // у скруглённого урока торчали углы. Оставляем только
+                    // лёгкое увеличение, без прямоугольника.
+                    proxyDecorator: (child, index, animation) {
+                      return AnimatedBuilder(
+                        animation: animation,
+                        builder: (context, child) {
+                          final t = Curves.easeOut.transform(animation.value);
+                          return Transform.scale(
+                            scale: 1 + 0.02 * t,
+                            child: Material(
+                              type: MaterialType.transparency,
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: child,
+                      );
+                    },
                     itemCount: lessons.length,
                     onReorderItem: (oldIndex, newIndex) {
                       // onReorderItem уже учитывает сдвиг после удаления.

@@ -93,13 +93,13 @@ void main() {
       expect(result.single.deadline, DateTime(2025, 11, 16, 20));
     });
 
-    test('пятница без даты => воскресенье, 20:00', () {
+    test('пятница без даты => пятница, 20:00 (урок в субботу)', () {
       final result = parser.parse(
         '#физика параграф 5',
         now: DateTime(2025, 11, 14, 10),
       );
 
-      expect(result.single.deadline, DateTime(2025, 11, 16, 20));
+      expect(result.single.deadline, DateTime(2025, 11, 14, 20));
     });
 
     test('суббота без даты => воскресенье, 20:00', () {
@@ -111,13 +111,32 @@ void main() {
       expect(result.single.deadline, DateTime(2025, 11, 16, 20));
     });
 
-    test('будний день без даты => следующий день, 20:00', () {
+    test('будний день без даты => вечер накануне урока', () {
       final result = parser.parse(
         '#алгебра упр 15',
         now: DateTime(2025, 11, 12, 10),
       );
 
+      expect(result.single.deadline, DateTime(2025, 11, 12, 20));
+    });
+
+    test('четверг: дедлайн сегодня, а не в день урока', () {
+      final result = parser.parse(
+        '#алгебра тест',
+        now: DateTime(2025, 11, 13, 10),
+      );
+
       expect(result.single.deadline, DateTime(2025, 11, 13, 20));
+    });
+
+    test('после 20:00 дедлайн переезжает на следующий учебный день', () {
+      final result = parser.parse(
+        '#алгебра тест',
+        now: DateTime(2025, 11, 13, 21),
+      );
+
+      // Урок уже в субботу, значит дедлайн — пятница, 20:00.
+      expect(result.single.deadline, DateTime(2025, 11, 14, 20));
     });
 
     test('«завтра» и «послезавтра»', () {
@@ -128,8 +147,8 @@ void main() {
         now: now,
       );
 
-      expect(tomorrow.single.deadline, DateTime(2025, 11, 13, 20));
-      expect(afterTomorrow.single.deadline, DateTime(2025, 11, 14, 20));
+      expect(tomorrow.single.deadline, DateTime(2025, 11, 12, 20));
+      expect(afterTomorrow.single.deadline, DateTime(2025, 11, 13, 20));
     });
 
     test('дата «12 ноября»', () {
@@ -138,7 +157,7 @@ void main() {
         now: DateTime(2025, 11, 9, 10),
       );
 
-      expect(result.single.deadline, DateTime(2025, 11, 12, 20));
+      expect(result.single.deadline, DateTime(2025, 11, 11, 20));
     });
 
     test('дата 12.11', () {
@@ -147,7 +166,7 @@ void main() {
         now: DateTime(2025, 11, 9, 10),
       );
 
-      expect(result.single.deadline, DateTime(2025, 11, 12, 20));
+      expect(result.single.deadline, DateTime(2025, 11, 11, 20));
     });
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -26,12 +28,21 @@ class ScheduleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Даты недели и бейджи «сегодня/завтра» пересчитываются в полночь,
+    // даже если вкладка открыта всю ночь.
+    return _WeekTicker(builder: _buildContent);
+  }
+
+  Widget _buildContent(BuildContext context) {
     final palette = context.palette;
     final state = context.watch<AppState>();
     final strings = state.strings;
     final now = DateTime.now();
     final marks = resolveDayMarks(now, state.schedule);
     final live = resolveLiveStatus(now, state.schedule);
+    // Даты текущей недели: понедельник + смещение дня.
+    final weekStart =
+        DateTime(now.year, now.month, now.day - (now.weekday - 1));
     final totalLessons = <int>[
       DateTime.monday,
       DateTime.tuesday,
@@ -107,12 +118,13 @@ class ScheduleScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       for (var day = DateTime.monday;
-                          day <= DateTime.saturday;
+                          day <= DateTime.sunday;
                           day++)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _DayCard(
                             day: day,
+                            date: weekStart.add(Duration(days: day - 1)),
                             lessons: state.lessonsFor(day),
                             isToday: day == marks.today,
                             isTomorrow: day == marks.tomorrow,
@@ -125,11 +137,6 @@ class ScheduleScreen extends StatelessWidget {
                           ),
                         ),
                       const SizedBox(height: 4),
-                      _AliasInfoCard(
-                        aliases: state.aliases,
-                        strings: strings,
-                      ),
-                      const SizedBox(height: 8),
                       Text(
                         strings.scheduleStorageNote,
                         textAlign: TextAlign.center,
@@ -149,6 +156,47 @@ class ScheduleScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Перерисовывает вкладку в полночь: даты недели и бейджи «сегодня/завтра»
+/// не должны «застывать» на вчерашнем дне.
+class _WeekTicker extends StatefulWidget {
+  const _WeekTicker({required this.builder});
+
+  final WidgetBuilder builder;
+
+  @override
+  State<_WeekTicker> createState() => _WeekTickerState();
+}
+
+class _WeekTickerState extends State<_WeekTicker> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleMidnight();
+  }
+
+  void _scheduleMidnight() {
+    _timer?.cancel();
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1);
+    _timer = Timer(nextMidnight.difference(now), () {
+      if (!mounted) return;
+      setState(() {});
+      _scheduleMidnight();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context);
 }
 
 String _liveLabel(LiveStatus status, Strings strings) {
@@ -192,6 +240,7 @@ IconData _liveIcon(LiveStatus status) {
 class _DayCard extends StatefulWidget {
   const _DayCard({
     required this.day,
+    required this.date,
     required this.lessons,
     required this.isToday,
     required this.isTomorrow,
@@ -201,6 +250,7 @@ class _DayCard extends StatefulWidget {
   });
 
   final int day;
+  final DateTime date;
   final List<Lesson> lessons;
   final bool isToday;
   final bool isTomorrow;
@@ -213,7 +263,10 @@ class _DayCard extends StatefulWidget {
 }
 
 class _DayCardState extends State<_DayCard> {
-  late bool _expanded = widget.initiallyExpanded;
+  late bool _expanded =
+      widget.initiallyExpanded && widget.day != DateTime.sunday;
+
+  bool get _dayOff => widget.day == DateTime.sunday;
 
   @override
   Widget build(BuildContext context) {
@@ -245,7 +298,8 @@ class _DayCardState extends State<_DayCard> {
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(26),
-              onTap: () => setState(() => _expanded = !_expanded),
+              onTap:
+                  _dayOff ? null : () => setState(() => _expanded = !_expanded),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
                 child: Row(
@@ -328,7 +382,8 @@ class _DayCardState extends State<_DayCard> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            widget.strings.lessonsCount(widget.lessons.length),
+                            '${formatDayMonth(widget.date, english: widget.strings.isEnglish)}'
+                            ' · ${_dayOff ? widget.strings.dayOff : widget.strings.lessonsCount(widget.lessons.length)}',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -338,16 +393,17 @@ class _DayCardState extends State<_DayCard> {
                         ],
                       ),
                     ),
-                    AnimatedRotation(
-                      turns: _expanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOut,
-                      child: Icon(
-                        Icons.expand_more_rounded,
-                        size: 22,
-                        color: palette.textMuted,
+                    if (!_dayOff)
+                      AnimatedRotation(
+                        turns: _expanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 240),
+                        curve: Curves.easeOut,
+                        child: Icon(
+                          Icons.expand_more_rounded,
+                          size: 22,
+                          color: palette.textMuted,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -509,106 +565,6 @@ class _LessonRow extends StatelessWidget {
             color: palette.border.withValues(alpha: 0.7),
           ),
       ],
-    );
-  }
-}
-
-class _AliasInfoCard extends StatelessWidget {
-  const _AliasInfoCard({required this.aliases, required this.strings});
-
-  final Map<String, List<String>> aliases;
-  final Strings strings;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final socialAliases = aliases['Обществознание'] ??
-        const <String>['общество', 'общага', 'квобщество'];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: palette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: palette.accentSoft,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 17,
-                  color: palette.textPrimary,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      strings.aliasCardTitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: palette.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      strings.aliasCardSubtitle,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: palette.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: <Widget>[
-              for (final alias in socialAliases.take(3))
-                SoftChip(label: '#$alias'),
-              Icon(
-                Icons.arrow_forward_rounded,
-                size: 16,
-                color: palette.textMuted,
-              ),
-              const SoftChip(
-                label: 'Обществознание',
-                icon: Icons.groups_rounded,
-                accent: true,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            strings.aliasCardFooter,
-            style: TextStyle(
-              fontSize: 10.5,
-              height: 1.45,
-              fontWeight: FontWeight.w600,
-              color: palette.textMuted,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
