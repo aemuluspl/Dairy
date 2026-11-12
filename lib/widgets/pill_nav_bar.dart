@@ -8,33 +8,38 @@ class PillNavBar extends StatelessWidget {
     super.key,
     required this.currentIndex,
     required this.onSelect,
+    this.stylusWithLines = false,
   });
 
   final int currentIndex;
   final ValueChanged<int> onSelect;
 
-  static const List<_NavItemData> _items = <_NavItemData>[
-    _NavItemData(
-      icon: Icons.draw_rounded,
-      label: 'New',
-    ),
-    _NavItemData(
-      icon: Icons.checklist_rounded,
-      label: 'Tasks',
-    ),
-    _NavItemData(
-      icon: Icons.calendar_month_rounded,
-      label: 'Schedule',
-    ),
-    _NavItemData(
-      icon: Icons.settings_rounded,
-      label: 'Settings',
-    ),
-  ];
+  /// Иконка вкладки New: стилус с линиями или обычный карандаш.
+  final bool stylusWithLines;
+
+  List<_NavItemData> get _items => <_NavItemData>[
+        _NavItemData(
+          icon: stylusWithLines ? Icons.draw_rounded : Icons.edit_rounded,
+          label: 'New',
+        ),
+        const _NavItemData(
+          icon: Icons.checklist_rounded,
+          label: 'Tasks',
+        ),
+        const _NavItemData(
+          icon: Icons.calendar_month_rounded,
+          label: 'Schedule',
+        ),
+        const _NavItemData(
+          icon: Icons.settings_rounded,
+          label: 'Settings',
+        ),
+      ];
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final items = _items;
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.only(bottom: 8),
@@ -62,7 +67,7 @@ class PillNavBar extends StatelessWidget {
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final itemWidth = constraints.maxWidth / _items.length;
+                  final itemWidth = constraints.maxWidth / items.length;
                   return Stack(
                     children: <Widget>[
                       AnimatedPositioned(
@@ -81,10 +86,10 @@ class PillNavBar extends StatelessWidget {
                       ),
                       Row(
                         children: <Widget>[
-                          for (var index = 0; index < _items.length; index++)
+                          for (var index = 0; index < items.length; index++)
                             Expanded(
                               child: _NavButton(
-                                data: _items[index],
+                                data: items[index],
                                 selected: currentIndex == index,
                                 onTap: () {
                                   if (currentIndex == index) return;

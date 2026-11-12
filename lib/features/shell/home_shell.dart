@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../state/app_state.dart';
 import '../../widgets/pill_nav_bar.dart';
 import '../inbox/inbox_screen.dart';
 import '../schedule/schedule_screen.dart';
@@ -83,6 +85,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+    final state = context.watch<AppState>();
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -100,6 +103,7 @@ class _HomeShellState extends State<HomeShell> {
           : PillNavBar(
               currentIndex: _currentIndex,
               onSelect: _select,
+              stylusWithLines: state.newIconLines,
             ),
     );
   }

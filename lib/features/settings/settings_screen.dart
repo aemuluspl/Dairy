@@ -74,6 +74,8 @@ class SettingsScreen extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    _NewIconCard(state: state, strings: strings),
                     const SizedBox(height: 18),
                     _SectionLabel(strings.languageSection),
                     const SizedBox(height: 8),
@@ -809,6 +811,75 @@ class _LanguageOption extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NewIconCard extends StatelessWidget {
+  const _NewIconCard({required this.state, required this.strings});
+
+  final AppState state;
+  final Strings strings;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: palette.accentSoft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              state.newIconLines ? Icons.draw_rounded : Icons.edit_rounded,
+              size: 19,
+              color: palette.textPrimary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  strings.newIconTitle,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: palette.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  strings.newIconHint,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                    color: palette.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: state.newIconLines,
+            onChanged: state.setNewIconLines,
+            activeThumbColor: palette.onAccent,
+            activeTrackColor: palette.accent,
+          ),
+        ],
       ),
     );
   }

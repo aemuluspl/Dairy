@@ -130,9 +130,17 @@ class Strings {
         'Добавь уроки — они появятся здесь.',
         'Add lessons and they will show up here.',
       );
-  String get weekRange => _t('Пн – Сб', 'Mon – Sat');
-  String todayChip(String day) => _t('Сегодня · $day', 'Today · $day');
   String get todayBadge => _t('сегодня', 'today');
+  String get tomorrowBadge => _t('завтра', 'tomorrow');
+  String statusFirstLesson(String time) =>
+      _t('Первый урок в $time', 'First lesson at $time');
+  String statusInLesson(String subject, String start) =>
+      _t('Сейчас: $subject · $start', 'Now: $subject · $start');
+  String statusBreak(String time) =>
+      _t('Перемена до $time', 'Break until $time');
+  String statusTomorrow(int count) =>
+      _t('Завтра: ${lessonsCount(count)}', 'Tomorrow: ${lessonsCount(count)}');
+  String statusNextDay(String day) => _t('Дальше: $day', 'Next: $day');
   String get editSchedule => _t('Изменить расписание', 'Edit schedule');
   String get editTitle => _t('Редактировать', 'Edit');
   String get editLesson => _t('Изменить урок', 'Edit lesson');
@@ -180,6 +188,9 @@ class Strings {
   String get languageEnglish => _t('English', 'English');
   String get languageEnglishHint =>
       _t('Всё на английском', 'Everything in English');
+  String get newIconTitle => _t('Иконка вкладки New', 'New tab icon');
+  String get newIconHint =>
+      _t('Стилус с линиями или карандаш', 'Stylus with lines or pencil');
   String get scheduleSection => _t('РАСПИСАНИЕ', 'SCHEDULE');
   String get showRooms => _t('Показывать кабинеты', 'Show room numbers');
   String get showRoomsHint => _t(

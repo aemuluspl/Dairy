@@ -8,6 +8,7 @@ class SettingsRepository {
   static const String _themeKey = 'themeMode';
   static const String _languageKey = 'language';
   static const String _showRoomsKey = 'showRooms';
+  static const String _newIconLinesKey = 'newIconLines';
 
   late final Box<dynamic> _box;
 
@@ -36,4 +37,9 @@ class SettingsRepository {
   bool loadShowRooms() => _box.get(_showRoomsKey) as bool? ?? true;
 
   Future<void> saveShowRooms(bool value) => _box.put(_showRoomsKey, value);
+
+  bool loadNewIconLines() => _box.get(_newIconLinesKey) as bool? ?? false;
+
+  Future<void> saveNewIconLines(bool value) =>
+      _box.put(_newIconLinesKey, value);
 }

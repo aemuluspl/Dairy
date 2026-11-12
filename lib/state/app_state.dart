@@ -35,6 +35,7 @@ class AppState extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   AppLanguage _language = AppLanguage.mixed;
   bool _showRooms = true;
+  bool _newIconLines = false;
 
   late SubjectResolver _resolver;
   late HomeworkParser _parser;
@@ -48,6 +49,7 @@ class AppState extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   AppLanguage get language => _language;
   bool get showRooms => _showRooms;
+  bool get newIconLines => _newIconLines;
   Strings get strings => Strings(_language);
   SubjectResolver get resolver => _resolver;
   HomeworkParser get parser => _parser;
@@ -83,6 +85,7 @@ class AppState extends ChangeNotifier {
     _themeMode = settingsRepository.loadThemeMode();
     _language = settingsRepository.loadLanguage();
     _showRooms = settingsRepository.loadShowRooms();
+    _newIconLines = settingsRepository.loadNewIconLines();
     _resolver = SubjectResolver(_aliases);
     _parser = HomeworkParser(resolver: _resolver);
     _sortTasks();
@@ -175,6 +178,13 @@ class AppState extends ChangeNotifier {
     _showRooms = value;
     notifyListeners();
     await settingsRepository.saveShowRooms(value);
+  }
+
+  Future<void> setNewIconLines(bool value) async {
+    if (_newIconLines == value) return;
+    _newIconLines = value;
+    notifyListeners();
+    await settingsRepository.saveNewIconLines(value);
   }
 
   Future<void> saveScheduleDay(int weekday, List<Lesson> lessons) async {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/i18n/app_strings.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/date_text.dart';
+import '../../core/utils/school_day.dart';
 import '../../core/utils/max_width_box.dart';
 import '../../data/models/lesson.dart';
 import '../../state/app_state.dart';
@@ -29,7 +30,8 @@ class ScheduleScreen extends StatelessWidget {
     final state = context.watch<AppState>();
     final strings = state.strings;
     final now = DateTime.now();
-    final today = now.weekday;
+    final marks = resolveDayMarks(now, state.schedule);
+    final live = resolveLiveStatus(now, state.schedule);
     final totalLessons = <int>[
       DateTime.monday,
       DateTime.tuesday,
@@ -93,29 +95,14 @@ class ScheduleScreen extends StatelessWidget {
                         runSpacing: 6,
                         children: <Widget>[
                           SoftChip(
-                            label: strings.weekRange,
-                            icon: Icons.calendar_view_week_rounded,
-                          ),
-                          SoftChip(
                             label: strings.lessonsCount(totalLessons),
                             icon: Icons.schedule_rounded,
                           ),
                           SoftChip(
-                            label: strings.classLabel,
-                            icon: Icons.groups_rounded,
+                            label: _liveLabel(live, strings),
+                            icon: _liveIcon(live),
+                            accent: true,
                           ),
-                          if (today >= DateTime.monday &&
-                              today <= DateTime.saturday)
-                            SoftChip(
-                              label: strings.todayChip(
-                                weekdayShort(
-                                  today,
-                                  english: strings.isEnglish,
-                                ),
-                              ),
-                              icon: Icons.bolt_rounded,
-                              accent: true,
-                            ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -127,13 +114,14 @@ class ScheduleScreen extends StatelessWidget {
                           child: _DayCard(
                             day: day,
                             lessons: state.lessonsFor(day),
-                            isToday: day == today,
+                            isToday: day == marks.today,
+                            isTomorrow: day == marks.tomorrow,
                             showRooms: state.showRooms,
                             strings: strings,
                             initiallyExpanded: day ==
-                                (today <= DateTime.saturday
-                                    ? today
-                                    : DateTime.monday),
+                                (marks.today ??
+                                    marks.tomorrow ??
+                                    DateTime.monday),
                           ),
                         ),
                       const SizedBox(height: 4),
@@ -163,11 +151,50 @@ class ScheduleScreen extends StatelessWidget {
   }
 }
 
+String _liveLabel(LiveStatus status, Strings strings) {
+  switch (status.kind) {
+    case LiveStatusKind.beforeSchool:
+      return strings.statusFirstLesson(status.time ?? '');
+    case LiveStatusKind.inLesson:
+      return strings.statusInLesson(
+        status.lesson?.subject ?? '',
+        status.lesson?.start ?? '',
+      );
+    case LiveStatusKind.onBreak:
+      return strings.statusBreak(status.time ?? '');
+    case LiveStatusKind.tomorrow:
+      return strings.statusTomorrow(status.lessonCount ?? 0);
+    case LiveStatusKind.nextDay:
+      return strings.statusNextDay(
+        capitalizeFirst(
+          weekdayFull(status.day ?? DateTime.monday,
+              english: strings.isEnglish),
+        ),
+      );
+  }
+}
+
+IconData _liveIcon(LiveStatus status) {
+  switch (status.kind) {
+    case LiveStatusKind.beforeSchool:
+      return Icons.backpack_rounded;
+    case LiveStatusKind.inLesson:
+      return Icons.play_circle_fill_rounded;
+    case LiveStatusKind.onBreak:
+      return Icons.free_breakfast_rounded;
+    case LiveStatusKind.tomorrow:
+      return Icons.event_rounded;
+    case LiveStatusKind.nextDay:
+      return Icons.fast_forward_rounded;
+  }
+}
+
 class _DayCard extends StatefulWidget {
   const _DayCard({
     required this.day,
     required this.lessons,
     required this.isToday,
+    required this.isTomorrow,
     required this.initiallyExpanded,
     required this.showRooms,
     required this.strings,
@@ -176,6 +203,7 @@ class _DayCard extends StatefulWidget {
   final int day;
   final List<Lesson> lessons;
   final bool isToday;
+  final bool isTomorrow;
   final bool initiallyExpanded;
   final bool showRooms;
   final Strings strings;
@@ -269,7 +297,7 @@ class _DayCardState extends State<_DayCard> {
                                   ),
                                 ),
                               ),
-                              if (highlight) ...<Widget>[
+                              if (highlight || widget.isTomorrow) ...<Widget>[
                                 const SizedBox(width: 6),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -277,15 +305,21 @@ class _DayCardState extends State<_DayCard> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: palette.accentSoft,
+                                    color: highlight
+                                        ? palette.accentSoft
+                                        : palette.chip,
                                     borderRadius: BorderRadius.circular(99),
                                   ),
                                   child: Text(
-                                    widget.strings.todayBadge,
+                                    highlight
+                                        ? widget.strings.todayBadge
+                                        : widget.strings.tomorrowBadge,
                                     style: TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w800,
-                                      color: palette.textPrimary,
+                                      color: highlight
+                                          ? palette.textPrimary
+                                          : palette.textSecondary,
                                     ),
                                   ),
                                 ),

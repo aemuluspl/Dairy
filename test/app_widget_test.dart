@@ -9,6 +9,8 @@ import 'package:school_diary/data/repositories/backup_repository.dart';
 import 'package:school_diary/data/repositories/schedule_repository.dart';
 import 'package:school_diary/data/repositories/settings_repository.dart';
 import 'package:school_diary/data/repositories/task_repository.dart';
+import 'package:school_diary/features/schedule/schedule_screen.dart';
+import 'package:school_diary/features/settings/settings_screen.dart';
 import 'package:school_diary/features/tasks/task_card.dart';
 import 'package:school_diary/features/tasks/task_detail_screen.dart';
 import 'package:school_diary/state/app_state.dart';
@@ -128,7 +130,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Пн – Сб'), findsOneWidget);
+    expect(find.textContaining('уроков'), findsWidgets);
     expect(find.text('Понедельник'), findsOneWidget);
 
     // Суббота ниже по списку — прокручиваем.
@@ -143,12 +145,20 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Экспорт базы (JSON)'), findsOneWidget);
 
-    // Переключение темы.
+    // Переключение темы — блок «Оформление» сверху.
     await tester.tap(find.text('Тёмная'));
     await tester.pumpAndSettle();
     expect(state.themeMode, ThemeMode.dark);
+
+    // Экспорт ниже — прокручиваем настройки.
+    final settingsList = find.descendant(
+      of: find.byType(SettingsScreen),
+      matching: find.byType(ListView),
+    );
+    await tester.drag(settingsList, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(find.text('Экспорт базы (JSON)'), findsOneWidget);
 
     // Даём снекбарам исчезнуть, чтобы не осталось таймеров.
     await tester.pump(const Duration(seconds: 3));
@@ -219,7 +229,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.edit_rounded));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(ScheduleScreen),
+        matching: find.byIcon(Icons.edit_rounded),
+      ),
+    );
     await tester.pumpAndSettle();
 
     // Подписи зависят от текущего языкового режима.
