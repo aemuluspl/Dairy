@@ -91,7 +91,9 @@ class _HomeShellState extends State<HomeShell> {
       resizeToAvoidBottomInset: true,
       body: PageView.builder(
         controller: _pageController,
-        physics: const BouncingScrollPhysics(),
+        // Смена вкладок — только тапом по навбару. Свайп отключён,
+        // чтобы не конфликтовать с жестами карточек и расписания.
+        physics: const NeverScrollableScrollPhysics(),
         onPageChanged: (page) {
           final index = page % _pageCount;
           if (index != _currentIndex) setState(() => _currentIndex = index);

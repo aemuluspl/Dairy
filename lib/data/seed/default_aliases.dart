@@ -46,7 +46,7 @@ const Map<String, List<String>> defaultSubjectAliases = <String, List<String>>{
     'english',
   ],
   'Информатика': <String>['информатика', 'инфа', 'инф', 'ит'],
-  'ОБЖ': <String>['обж', 'основы безопасности'],
+  'ОБЖ': <String>['обж', 'обзр', 'основы безопасности'],
   'Физкультура': <String>[
     'физкультура',
     'физра',

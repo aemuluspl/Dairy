@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:school_diary/data/models/holiday.dart';
+import 'package:school_diary/data/models/lesson.dart';
 import 'package:school_diary/data/seed/default_aliases.dart';
 import 'package:school_diary/domain/homework_parser.dart';
+import 'package:school_diary/domain/school_calendar.dart';
 import 'package:school_diary/domain/subject_resolver.dart';
 
 void main() {
@@ -167,6 +170,205 @@ void main() {
       );
 
       expect(result.single.deadline, DateTime(2025, 11, 11, 20));
+    });
+  });
+
+  group('дедлайны по расписанию', () {
+    Lesson lesson(String subject) =>
+        Lesson(subject: subject, start: '08:00', end: '08:40');
+
+    SchoolCalendar calendarWith(
+      Map<int, List<Lesson>> schedule, {
+      List<HolidayPeriod> holidays = const <HolidayPeriod>[],
+      bool saturdayOff = false,
+    }) =>
+        SchoolCalendar(
+          schedule: schedule,
+          holidays: holidays,
+          saturdayOff: saturdayOff,
+          resolver: resolver,
+        );
+
+    final thursday = DateTime(2025, 11, 13, 10);
+
+    test('история только в понедельник => дедлайн в воскресенье', () {
+      final calendar = calendarWith(<int, List<Lesson>>{
+        DateTime.monday: <Lesson>[lesson('История')],
+      });
+
+      final result = parser.parse(
+        '#история глава 5',
+        now: thursday,
+        calendar: calendar,
+      );
+
+      expect(result.single.usedSchedule, isTrue);
+      expect(result.single.due, DateTime(2025, 11, 17));
+      expect(result.single.deadline, DateTime(2025, 11, 16, 20));
+    });
+
+    test('алгебра в пятницу => дедлайн в четверг, 20:00', () {
+      final calendar = calendarWith(<int, List<Lesson>>{
+        DateTime.friday: <Lesson>[lesson('Алгебра')],
+      });
+
+      final result = parser.parse(
+        '#алгебра упр 15',
+        now: thursday,
+        calendar: calendar,
+      );
+
+      expect(result.single.due, DateTime(2025, 11, 14));
+      expect(result.single.deadline, DateTime(2025, 11, 13, 20));
+    });
+
+    test('«на следующий урок» = ближайший урок предмета', () {
+      final calendar = calendarWith(<int, List<Lesson>>{
+        DateTime.friday: <Lesson>[lesson('Алгебра')],
+      });
+
+      final result = parser.parse(
+        '#алгебра на следующий урок упр 15',
+        now: thursday,
+        calendar: calendar,
+      );
+
+      expect(result.single.due, DateTime(2025, 11, 14));
+      expect(result.single.deadline, DateTime(2025, 11, 13, 20));
+    });
+
+    test('«через урок» пролистывает один урок предмета', () {
+      final calendar = calendarWith(<int, List<Lesson>>{
+        DateTime.friday: <Lesson>[lesson('Алгебра')],
+        DateTime.tuesday: <Lesson>[lesson('Алгебра')],
+      });
+
+      final result = parser.parse(
+        '#алгебра через урок упр 15',
+        now: thursday,
+        calendar: calendar,
+      );
+
+      expect(result.single.due, DateTime(2025, 11, 18));
+      expect(result.single.deadline, DateTime(2025, 11, 17, 20));
+    });
+
+    test('каникулы в понедельник переносят урок на следующую неделю', () {
+      final calendar = calendarWith(
+        <int, List<Lesson>>{
+          DateTime.monday: <Lesson>[lesson('История')],
+        },
+        holidays: <HolidayPeriod>[
+          HolidayPeriod(
+            start: DateTime(2025, 11, 17),
+            end: DateTime(2025, 11, 17),
+          ),
+        ],
+      );
+
+      final result = parser.parse(
+        '#история глава 5',
+        now: thursday,
+        calendar: calendar,
+      );
+
+      expect(result.single.due, DateTime(2025, 11, 24));
+      expect(result.single.deadline, DateTime(2025, 11, 23, 20));
+    });
+
+    test('суббота-выходной пропускает субботние уроки', () {
+      final calendar = calendarWith(
+        <int, List<Lesson>>{
+          DateTime.saturday: <Lesson>[lesson('Физика')],
+          DateTime.monday: <Lesson>[lesson('Физика')],
+        },
+        saturdayOff: true,
+      );
+
+      final result = parser.parse(
+        '#физика параграф 5',
+        now: DateTime(2025, 11, 14, 10),
+        calendar: calendar,
+      );
+
+      // Суббота выключена, поэтому ближайший урок — понедельник.
+      expect(result.single.due, DateTime(2025, 11, 17));
+      expect(result.single.deadline, DateTime(2025, 11, 16, 20));
+    });
+
+    test('если предмет только в субботу, а суббота выключена — запасной день',
+        () {
+      final calendar = calendarWith(
+        <int, List<Lesson>>{
+          DateTime.saturday: <Lesson>[lesson('Физика')],
+        },
+        saturdayOff: true,
+      );
+
+      final result = parser.parse(
+        '#физика параграф 5',
+        now: DateTime(2025, 11, 14, 10),
+        calendar: calendar,
+      );
+
+      expect(result.single.usedSchedule, isFalse);
+      expect(result.single.due, DateTime(2025, 11, 17));
+      expect(result.single.deadline, DateTime(2025, 11, 16, 20));
+    });
+
+    test('явный день недели на каникулах сдвигается вперёд', () {
+      final calendar = calendarWith(
+        <int, List<Lesson>>{
+          DateTime.tuesday: <Lesson>[lesson('История')],
+        },
+        holidays: <HolidayPeriod>[
+          HolidayPeriod(
+            start: DateTime(2025, 11, 17),
+            end: DateTime(2025, 11, 17),
+          ),
+        ],
+      );
+
+      final result = parser.parse(
+        '#история на понедельник глава 5',
+        now: thursday,
+        calendar: calendar,
+      );
+
+      expect(result.single.due, DateTime(2025, 11, 18));
+      expect(result.single.deadline, DateTime(2025, 11, 17, 20));
+    });
+  });
+
+  group('слипшийся текст', () {
+    test('#алгебраупр15 делится на тег и описание', () {
+      final result = parser.parse(
+        '#алгебраупр15',
+        now: DateTime(2025, 11, 13, 10),
+      );
+
+      expect(result.single.subject, 'Алгебра');
+      expect(result.single.description, 'упр15');
+    });
+
+    test('#физикапараграф5 сохраняет хвост в описании', () {
+      final result = parser.parse(
+        '#физикапараграф5',
+        now: DateTime(2025, 11, 13, 10),
+      );
+
+      expect(result.single.subject, 'Физика');
+      expect(result.single.description, 'параграф5');
+    });
+
+    test('известный тег не режется', () {
+      final result = parser.parse(
+        '#русский_язык упр 3',
+        now: DateTime(2025, 11, 13, 10),
+      );
+
+      expect(result.single.subject, 'Русский язык');
+      expect(result.single.description, 'упр 3');
     });
   });
 }

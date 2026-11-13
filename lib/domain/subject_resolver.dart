@@ -1,7 +1,7 @@
 import '../data/seed/default_aliases.dart';
 
 /// Превращает тег из текста в канонический предмет расписания.
-/// Здесь же живёт система алиасов и подсказки для Т9.
+/// Здесь же живёт система алиасов, подсказки и разбор слипшихся тегов.
 class SubjectResolver {
   SubjectResolver(Map<String, List<String>> aliases)
       : _aliases = Map<String, List<String>>.unmodifiable(
@@ -20,6 +20,7 @@ class SubjectResolver {
 
   final Map<String, List<String>> _aliases;
   final Map<String, String> _lookup = <String, String>{};
+  List<String>? _candidatesCache;
 
   List<String> get subjects => _aliases.keys.toList(growable: false);
 
@@ -28,11 +29,13 @@ class SubjectResolver {
 
   /// #общага / #квобщество / #общество -> «Обществознание».
   String resolve(String rawTag) {
-    final normalized = _normalize(rawTag);
-    final known = _lookup[normalized];
-    if (known != null) return known;
-    return _prettify(rawTag);
+    return resolveOrNull(rawTag) ?? _prettify(rawTag);
   }
+
+  /// Канонический предмет, если тег известен словарю. Иначе `null`.
+  String? resolveOrNull(String rawTag) => _lookup[_normalize(rawTag)];
+
+  bool knows(String rawTag) => resolveOrNull(rawTag) != null;
 
   /// Подсказки для Т9: и по каноническому имени, и по любому алиасу.
   List<String> suggest(String prefix, {int limit = 3}) {
@@ -51,6 +54,87 @@ class SubjectResolver {
     return result;
   }
 
+  /// Inline-дополнение: «ал» → слово «алгебра», хвост «гебра».
+  ///
+  /// Берётся самый короткий подходящий вариант, чтобы подсказка была
+  /// максимально близка к уже набранному слову.
+  ({String subject, String word, String completion})? completionFor(
+    String prefix,
+  ) {
+    final normalizedPrefix = _normalize(prefix);
+    if (normalizedPrefix.length < 2) return null;
+
+    final matches = <({String subject, String word, int length})>[];
+    for (final entry in _aliases.entries) {
+      for (final candidate in <String>[entry.key, ...entry.value]) {
+        final normalized = _normalize(candidate);
+        if (normalized.length > normalizedPrefix.length &&
+            normalized.startsWith(normalizedPrefix)) {
+          matches.add((
+            subject: entry.key,
+            word: candidate,
+            length: normalized.length,
+          ));
+        }
+      }
+    }
+    if (matches.isEmpty) return null;
+
+    matches.sort((a, b) {
+      final byLength = a.length.compareTo(b.length);
+      if (byLength != 0) return byLength;
+      return a.word.compareTo(b.word);
+    });
+
+    final best = matches.first;
+    final cut = _indexAfterNormalized(best.word, normalizedPrefix.length);
+    if (cut == null || cut >= best.word.length) return null;
+
+    return (
+      subject: best.subject,
+      word: best.word,
+      completion: best.word.substring(cut),
+    );
+  }
+
+  /// Разбор слипшегося тега: `#алгебраупр15` → тег `алгебра` + хвост `упр15`.
+  ///
+  /// Срабатывает только если тег целиком неизвестен, а его начало — известный
+  /// предмет. Минимальная длина алиаса для разрезания — 4 символа, чтобы
+  /// короткие `#ист` / `#лит` не резали случайные слова.
+  ({String tag, String rest})? splitGlued(String rawTag) {
+    final clean = rawTag.trim();
+    if (clean.isEmpty || resolveOrNull(clean) != null) return null;
+
+    final normalized = _normalize(clean);
+    if (normalized.isEmpty) return null;
+
+    final candidates = <({String word, String normalized})>[];
+    for (final candidate in _candidateWords()) {
+      final normalizedCandidate = _normalize(candidate);
+      if (normalizedCandidate.length < 4) continue;
+      if (normalized.length <= normalizedCandidate.length) continue;
+      if (!normalized.startsWith(normalizedCandidate)) continue;
+      candidates.add((word: candidate, normalized: normalizedCandidate));
+    }
+    if (candidates.isEmpty) return null;
+
+    candidates
+        .sort((a, b) => b.normalized.length.compareTo(a.normalized.length));
+
+    for (final candidate in candidates) {
+      final cut = _indexAfterNormalized(clean, candidate.normalized.length);
+      if (cut == null || cut >= clean.length) continue;
+
+      final tag = clean.substring(0, cut).replaceAll(RegExp(r'[_\-\s]+$'), '');
+      final rest = clean.substring(cut).replaceAll(RegExp(r'^[_\-\s]+'), '');
+      if (tag.isEmpty || rest.isEmpty) continue;
+      if (resolveOrNull(tag) == null) continue;
+      return (tag: tag, rest: rest);
+    }
+    return null;
+  }
+
   /// Тег, который вставляется в текст при нажатии на чипс/подсказку.
   String tagFor(String subject) {
     final tag = subject
@@ -61,10 +145,32 @@ class SubjectResolver {
     return tag.isEmpty ? 'разное' : tag;
   }
 
+  List<String> _candidateWords() {
+    return _candidatesCache ??= <String>{
+      for (final entry in _aliases.entries) ...<String>[
+        entry.key,
+        ...entry.value,
+      ],
+    }.toList(growable: false);
+  }
+
   static String _normalize(String value) => value
       .toLowerCase()
       .replaceAll('ё', 'е')
       .replaceAll(RegExp(r'[^a-zа-я0-9]'), '');
+
+  /// Индекс в исходной строке сразу после [count] «нормализованных» символов.
+  static int? _indexAfterNormalized(String raw, int count) {
+    var seen = 0;
+    for (var index = 0; index < raw.length; index++) {
+      final char = raw[index].toLowerCase().replaceAll('ё', 'е');
+      if (RegExp(r'[a-zа-я0-9]').hasMatch(char)) {
+        seen++;
+        if (seen == count) return index + 1;
+      }
+    }
+    return null;
+  }
 
   static String _prettify(String value) {
     final cleaned = value.trim().replaceAll(RegExp(r'[_-]+'), ' ');

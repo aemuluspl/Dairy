@@ -1,4 +1,5 @@
 import '../data/seed/default_aliases.dart';
+import 'school_calendar.dart';
 import 'subject_resolver.dart';
 
 class ParsedHomework {
@@ -7,20 +8,28 @@ class ParsedHomework {
     required this.description,
     required this.deadline,
     required this.rawTag,
+    this.due,
+    this.usedSchedule = false,
   });
 
   final String subject;
   final String description;
   final DateTime deadline;
   final String rawTag;
+
+  /// День урока, к которому задана домашка (до сдвига на вечер).
+  final DateTime? due;
+
+  /// Дедлайн посчитан по реальному расписанию предмета.
+  final bool usedSchedule;
 }
 
 /// Парсер «вброса».
 ///
 /// 1. Делит строку на задачи по хэштегам.
-/// 2. Убирает хэштеги из описания.
+/// 2. Убирает хэштеги из описания и разбирает слипшиеся теги.
 /// 3. Понимает алиасы предметов.
-/// 4. Считает дедлайн и перешагивает выходные.
+/// 4. Считает дедлайн: 20:00 накануне дня урока, по расписанию.
 class HomeworkParser {
   HomeworkParser({
     SubjectResolver? resolver,
@@ -62,7 +71,11 @@ class HomeworkParser {
     DateTime.sunday: <String>['воскресень', 'вс'],
   };
 
-  List<ParsedHomework> parse(String input, {DateTime? now}) {
+  List<ParsedHomework> parse(
+    String input, {
+    DateTime? now,
+    SchoolCalendar? calendar,
+  }) {
     final text = input.trim();
     if (text.isEmpty) return const <ParsedHomework>[];
 
@@ -72,12 +85,20 @@ class HomeworkParser {
     if (matches.isEmpty) {
       final description = _cleanDescription(text);
       if (description.isEmpty) return const <ParsedHomework>[];
+      final deadline = _deadlineFor(
+        text,
+        reference,
+        subject: 'Разное',
+        calendar: calendar,
+      );
       return <ParsedHomework>[
         ParsedHomework(
           subject: 'Разное',
           description: description,
-          deadline: _deadlineFor(text, reference),
+          deadline: deadline.value,
           rawTag: '',
+          due: deadline.due,
+          usedSchedule: deadline.bySchedule,
         ),
       ];
     }
@@ -87,22 +108,45 @@ class HomeworkParser {
 
     for (var index = 0; index < matches.length; index++) {
       final match = matches[index];
-      final tag = _cleanTag(match.group(1) ?? '');
+      var tag = _cleanTag(match.group(1) ?? '');
       if (tag.isEmpty) continue;
 
+      // Слипшийся тег: #алгебраупр15 → предмет «Алгебра», хвост «упр15».
+      String? gluedRest;
+      if (resolver.resolveOrNull(tag) == null) {
+        final split = resolver.splitGlued(tag);
+        if (split != null) {
+          tag = split.tag;
+          gluedRest = split.rest;
+        }
+      }
+
+      final subject = resolver.resolve(tag);
       final segmentEnd =
           index + 1 < matches.length ? matches[index + 1].start : text.length;
       var body = text.substring(match.end, segmentEnd).trim();
+      if (gluedRest != null) {
+        body = body.isEmpty ? gluedRest : '$gluedRest $body';
+      }
       if (index == 0 && leading.isNotEmpty) {
         body = body.isEmpty ? leading : '$leading $body';
       }
 
+      final deadline = _deadlineFor(
+        body,
+        reference,
+        subject: subject,
+        calendar: calendar,
+      );
+
       result.add(
         ParsedHomework(
-          subject: resolver.resolve(tag),
+          subject: subject,
           description: _cleanDescription(body),
-          deadline: _deadlineFor(body, reference),
+          deadline: deadline.value,
           rawTag: tag,
+          due: deadline.due,
+          usedSchedule: deadline.bySchedule,
         ),
       );
     }
@@ -124,9 +168,14 @@ class HomeworkParser {
         .trim();
   }
 
-  DateTime _deadlineFor(String rawText, DateTime now) {
+  ({DateTime value, DateTime due, bool bySchedule}) _deadlineFor(
+    String rawText,
+    DateTime now, {
+    required String subject,
+    SchoolCalendar? calendar,
+  }) {
     final text = rawText.toLowerCase().replaceAll('ё', 'е');
-    final today = DateTime(now.year, now.month, now.day);
+    final today = SchoolCalendar.dateOnly(now);
     final words = text
         .split(RegExp(r'[^а-яa-z0-9]+'))
         .where((word) => word.isNotEmpty)
@@ -134,25 +183,50 @@ class HomeworkParser {
 
     // День, к которому задана домашка (день урока).
     DateTime due;
-    final explicit = _parseExplicitDate(text, today);
+    var bySchedule = false;
     // Для дат «по умолчанию» дедлайн можно сдвинуть, если вечер уже прошёл.
     var flexible = false;
+
+    final explicit = _parseExplicitDate(text, today);
+    final shift = _shiftCount(words);
 
     if (explicit != null) {
       due = explicit;
     } else if (words.any((word) => word.startsWith('послезавтра'))) {
-      due = today.add(const Duration(days: 2));
+      due = _skipDaysOff(today.add(const Duration(days: 2)), calendar);
     } else if (words.any((word) => word.startsWith('завтра'))) {
-      due = today.add(const Duration(days: 1));
+      due = _skipDaysOff(today.add(const Duration(days: 1)), calendar);
     } else if (words.any((word) => word.startsWith('сегодня'))) {
       due = today;
     } else {
       final weekday = _findWeekday(words);
       if (weekday != null) {
-        due = _nextWeekday(today, weekday, now);
+        final candidate = _nextWeekday(today, weekday, now);
+        // Явно названный день сдвигаем только если он выпал на каникулы
+        // или отключённую субботу. Воскресенье остаётся допустимым.
+        due = candidate.weekday == DateTime.sunday
+            ? candidate
+            : _skipDaysOff(candidate, calendar);
       } else {
-        due = _nextSchoolDay(today);
+        // Даты нет — ищем ближайший урок этого предмета в расписании.
+        final scheduled = _subjectDeadline(
+          subject: subject,
+          today: today,
+          now: now,
+          calendar: calendar,
+          shift: shift ?? 0,
+        );
+        if (scheduled != null) {
+          return (
+            value: scheduled.deadline,
+            due: scheduled.due,
+            bySchedule: true,
+          );
+        }
+
+        due = calendar?.nextSchoolDay(today) ?? _nextSchoolDay(today);
         flexible = true;
+        bySchedule = false;
       }
     }
 
@@ -160,11 +234,66 @@ class HomeworkParser {
     var candidate = _eveningBefore(due, today);
 
     while (flexible && candidate.isBefore(now)) {
-      due = _nextSchoolDay(due);
+      due = calendar?.nextSchoolDay(due) ?? _nextSchoolDay(due);
       candidate = _eveningBefore(due, today);
     }
 
-    return candidate;
+    return (
+      value: candidate,
+      due: SchoolCalendar.dateOnly(due),
+      bySchedule: bySchedule
+    );
+  }
+
+  /// Дедлайн по расписанию: ближайший урок предмета (со сдвигом «через урок»).
+  ({DateTime deadline, DateTime due})? _subjectDeadline({
+    required String subject,
+    required DateTime today,
+    required DateTime now,
+    required int shift,
+    SchoolCalendar? calendar,
+  }) {
+    if (calendar == null || subject == 'Разное') return null;
+
+    final dates = calendar.upcomingSubjectDates(subject, from: today);
+    if (dates.isEmpty) return null;
+
+    var index = shift;
+    while (index < dates.length) {
+      final due = dates[index];
+      final candidate = _eveningBefore(due, today);
+      if (!candidate.isBefore(now)) {
+        return (deadline: candidate, due: due);
+      }
+      index++;
+    }
+    return null;
+  }
+
+  /// «через урок» = 1, «через 2 урока» = 2, «на следующий урок» = 0.
+  int? _shiftCount(List<String> words) {
+    final mentionsLesson = words.any((word) => word.startsWith('урок'));
+    if (!mentionsLesson) return null;
+
+    final throughIndex = words.indexWhere((word) => word.startsWith('через'));
+    if (throughIndex >= 0) {
+      for (var index = throughIndex + 1; index < words.length; index++) {
+        final number = int.tryParse(words[index]);
+        if (number != null && number > 0) return number;
+        if (words[index].startsWith('урок')) return 1;
+      }
+      return 1;
+    }
+
+    if (words.any((word) => word.startsWith('следующ'))) return 0;
+    return null;
+  }
+
+  /// Сдвигает выпавший выходной/каникулы на ближайший учебный день.
+  DateTime _skipDaysOff(DateTime date, SchoolCalendar? calendar) {
+    if (calendar == null || calendar.isSchoolDay(date)) return date;
+    if (date.weekday == DateTime.sunday) return date;
+    return calendar.nextSchoolDay(date);
   }
 
   /// 20:00 накануне дня урока. Если урок уже сегодня — вечер сегодня.

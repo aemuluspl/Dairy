@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/i18n/app_strings.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/date_text.dart';
 import '../../core/utils/max_width_box.dart';
@@ -24,6 +23,7 @@ class TasksScreen extends StatefulWidget {
 
 class _TasksScreenState extends State<TasksScreen> {
   final Set<String> _hiddenTaskIds = <String>{};
+  final Set<String> _collapsingIds = <String>{};
 
   Future<void> _pickDate(Task task) async {
     final state = context.read<AppState>();
@@ -40,9 +40,20 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   Future<void> _toggle(Task task) async {
+    if (_collapsingIds.contains(task.id)) return;
+
+    // Сначала карточка плавно сворачивается, и только потом задача
+    // переезжает в «Выполнено» — без рывка списка.
+    setState(() => _collapsingIds.add(task.id));
+    await Future<void>.delayed(const Duration(milliseconds: 240));
+    if (!mounted) return;
+
     final state = context.read<AppState>();
     final updated = await state.toggleCompleted(task);
-    if (updated == null || !mounted) return;
+    if (!mounted) return;
+
+    setState(() => _collapsingIds.remove(task.id));
+    if (updated == null) return;
 
     final strings = state.strings;
     showAppSnackBar(
@@ -108,14 +119,20 @@ class _TasksScreenState extends State<TasksScreen> {
     final percent = (progress * 100).round();
 
     Widget cardFor(Task task) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: TaskCard(
-          task: task,
-          onTap: () => _pickDate(task),
-          onToggle: () => _toggle(task),
-          onDismissed: () => _toggleBySwipe(task),
-          onOpenDetails: () => _openDetails(task),
+      return _AnimatedCardSlot(
+        // Ключ включает статус: после переключения карточка монтируется
+        // заново и плавно появляется в новой секции.
+        key: ValueKey<String>('${task.id}:${task.isCompleted}'),
+        collapsing: _collapsingIds.contains(task.id),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: TaskCard(
+            task: task,
+            onTap: () => _pickDate(task),
+            onToggle: () => _toggle(task),
+            onDismissed: () => _toggleBySwipe(task),
+            onOpenDetails: () => _openDetails(task),
+          ),
         ),
       );
     }
@@ -272,24 +289,18 @@ class _TasksScreenState extends State<TasksScreen> {
                             ),
                           ),
                           const SizedBox(height: 14),
-                          if (active.isEmpty)
-                            _AllDoneBanner(
-                              completedCount: completed.length,
-                              strings: strings,
-                            )
-                          else
-                            for (final day in groupDays) ...<Widget>[
-                              _GroupHeader(
-                                title: groupTitleFor(
-                                  day,
-                                  now: now,
-                                  english: strings.isEnglish,
-                                ),
-                                count: groups[day]!.length,
-                                isOverdue: day.isBefore(dateOnly(now)),
+                          for (final day in groupDays) ...<Widget>[
+                            _GroupHeader(
+                              title: groupTitleFor(
+                                day,
+                                now: now,
+                                english: strings.isEnglish,
                               ),
-                              for (final task in groups[day]!) cardFor(task),
-                            ],
+                              count: groups[day]!.length,
+                              isOverdue: day.isBefore(dateOnly(now)),
+                            ),
+                            for (final task in groups[day]!) cardFor(task),
+                          ],
                           if (completed.isNotEmpty) ...<Widget>[
                             const SizedBox(height: 6),
                             _GroupHeader(
@@ -418,64 +429,62 @@ class _GroupHeader extends StatelessWidget {
   }
 }
 
-class _AllDoneBanner extends StatelessWidget {
-  const _AllDoneBanner({required this.completedCount, required this.strings});
+/// Плавное сворачивание карточки перед переносом в другую секцию.
+class _AnimatedCardSlot extends StatefulWidget {
+  const _AnimatedCardSlot({
+    super.key,
+    required this.collapsing,
+    required this.child,
+  });
 
-  final int completedCount;
-  final Strings strings;
+  final bool collapsing;
+  final Widget child;
+
+  @override
+  State<_AnimatedCardSlot> createState() => _AnimatedCardSlotState();
+}
+
+class _AnimatedCardSlotState extends State<_AnimatedCardSlot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+    value: 0,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.collapsing) _controller.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedCardSlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.collapsing == widget.collapsing) return;
+    if (widget.collapsing) {
+      _controller.reverse();
+    } else {
+      _controller.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: palette.card,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: palette.success.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: palette.successSoft,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Icon(
-              Icons.check_circle_rounded,
-              color: palette.success,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  strings.allDoneTitle,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: palette.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  strings.allDoneMessage(completedCount),
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: palette.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    final curved = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    );
+    return SizeTransition(
+      sizeFactor: curved,
+      alignment: Alignment.topCenter,
+      child: FadeTransition(opacity: curved, child: widget.child),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/diagnostics/app_log.dart';
 import '../core/i18n/app_strings.dart';
+import '../data/models/holiday.dart';
 import '../data/models/lesson.dart';
 import '../data/models/task.dart';
 import '../data/repositories/backup_repository.dart';
@@ -13,6 +14,7 @@ import '../data/repositories/task_repository.dart';
 import '../data/seed/default_aliases.dart';
 import '../data/seed/default_schedule.dart';
 import '../domain/homework_parser.dart';
+import '../domain/school_calendar.dart';
 import '../domain/subject_resolver.dart';
 import '../services/export_service.dart';
 
@@ -36,6 +38,8 @@ class AppState extends ChangeNotifier {
   AppLanguage _language = AppLanguage.mixed;
   bool _showRooms = true;
   bool _newIconLines = false;
+  bool _saturdayOff = false;
+  List<HolidayPeriod> _holidays = <HolidayPeriod>[];
 
   late SubjectResolver _resolver;
   late HomeworkParser _parser;
@@ -50,9 +54,24 @@ class AppState extends ChangeNotifier {
   AppLanguage get language => _language;
   bool get showRooms => _showRooms;
   bool get newIconLines => _newIconLines;
+  bool get saturdayOff => _saturdayOff;
+  List<HolidayPeriod> get holidays =>
+      List<HolidayPeriod>.unmodifiable(_holidays);
   Strings get strings => Strings(_language);
   SubjectResolver get resolver => _resolver;
   HomeworkParser get parser => _parser;
+
+  /// Текущий учебный календарь: расписание + каникулы + режим субботы.
+  SchoolCalendar get calendar => SchoolCalendar(
+        schedule: _schedule,
+        holidays: _holidays,
+        saturdayOff: _saturdayOff,
+        resolver: _resolver,
+      );
+
+  /// Разбор текста с учётом реального расписания.
+  List<ParsedHomework> parseText(String text, {DateTime? now}) =>
+      _parser.parse(text, now: now, calendar: calendar);
 
   int get activeCount => _tasks.where((task) => !task.isCompleted).length;
   int get completedCount => _tasks.where((task) => task.isCompleted).length;
@@ -86,6 +105,8 @@ class AppState extends ChangeNotifier {
     _language = settingsRepository.loadLanguage();
     _showRooms = settingsRepository.loadShowRooms();
     _newIconLines = settingsRepository.loadNewIconLines();
+    _saturdayOff = settingsRepository.loadSaturdayOff();
+    _holidays = settingsRepository.loadHolidays();
     _resolver = SubjectResolver(_aliases);
     _parser = HomeworkParser(resolver: _resolver);
     _sortTasks();
@@ -97,7 +118,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<int> distribute(String rawText) async {
-    final parsed = _parser.parse(rawText);
+    final parsed = parseText(rawText);
     if (parsed.isEmpty) return 0;
 
     final created = parsed
@@ -185,6 +206,40 @@ class AppState extends ChangeNotifier {
     _newIconLines = value;
     notifyListeners();
     await settingsRepository.saveNewIconLines(value);
+  }
+
+  Future<void> setSaturdayOff(bool value) async {
+    if (_saturdayOff == value) return;
+    _saturdayOff = value;
+    notifyListeners();
+    await settingsRepository.saveSaturdayOff(value);
+    AppLog.instance.info(
+      value ? 'Суббота отмечена выходным' : 'Суббота снова учебный день',
+    );
+  }
+
+  Future<void> addHoliday(DateTime start, DateTime end) async {
+    _holidays = <HolidayPeriod>[
+      ..._holidays,
+      HolidayPeriod(start: start, end: end),
+    ]..sort((a, b) => a.start.compareTo(b.start));
+    notifyListeners();
+    await settingsRepository.saveHolidays(_holidays);
+    AppLog.instance.info(
+      'Добавлены каникулы: ${start.toIso8601String().split('T').first}'
+      ' — ${end.toIso8601String().split('T').first}',
+    );
+  }
+
+  Future<void> removeHoliday(HolidayPeriod period) async {
+    _holidays = _holidays
+        .where(
+          (item) => !(item.start == period.start && item.end == period.end),
+        )
+        .toList(growable: false);
+    notifyListeners();
+    await settingsRepository.saveHolidays(_holidays);
+    AppLog.instance.info('Каникулы удалены');
   }
 
   Future<void> saveScheduleDay(int weekday, List<Lesson> lessons) async {

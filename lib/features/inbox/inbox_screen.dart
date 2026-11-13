@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/max_width_box.dart';
 import '../../state/app_state.dart';
 import '../../widgets/app_snackbar.dart';
+import '../../widgets/ghost_text_controller.dart';
 import '../../widgets/soft_chip.dart';
 import '../../widgets/top_bar.dart';
 
@@ -16,15 +18,19 @@ class InboxScreen extends StatefulWidget {
 }
 
 class _InboxScreenState extends State<InboxScreen>
-    with AutomaticKeepAliveClientMixin {
-  final TextEditingController _controller = TextEditingController();
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+  final GhostTextController _controller = GhostTextController();
   final FocusNode _focusNode = FocusNode();
+
+  late final AnimationController _glow = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
 
   AppState? _appState;
   bool _listenerAttached = false;
   bool _submitting = false;
   int _detectedCount = 0;
-  final List<String> _suggestions = <String>[];
 
   @override
   bool get wantKeepAlive => true;
@@ -44,6 +50,7 @@ class _InboxScreenState extends State<InboxScreen>
     _controller.removeListener(_handleTextChanged);
     _controller.dispose();
     _focusNode.dispose();
+    _glow.dispose();
     super.dispose();
   }
 
@@ -52,19 +59,17 @@ class _InboxScreenState extends State<InboxScreen>
     if (!mounted || state == null) return;
 
     final prefix = _activePrefix();
-    final suggestions =
-        prefix.length >= 2 ? state.resolver.suggest(prefix) : const <String>[];
-    final text = _controller.text.trim();
-    final count = text.isEmpty ? 0 : state.parser.parse(text).length;
+    final completion =
+        prefix.isEmpty ? null : state.resolver.completionFor(prefix);
+    _controller.ghost = completion?.completion ?? '';
 
-    setState(() {
-      _suggestions
-        ..clear()
-        ..addAll(suggestions);
-      _detectedCount = count;
-    });
+    final text = _controller.text.trim();
+    final count = text.isEmpty ? 0 : state.parseText(text).length;
+
+    setState(() => _detectedCount = count);
   }
 
+  /// Слово под курсором без решётки, если курсор стоит сразу после него.
   String _activePrefix() {
     final selection = _controller.selection;
     if (!selection.isValid || !selection.isCollapsed) return '';
@@ -120,6 +125,7 @@ class _InboxScreenState extends State<InboxScreen>
     final updated = text.replaceRange(start, cursor, insertion);
     final newOffset = start + insertion.length;
 
+    _controller.ghost = '';
     _controller.value = TextEditingValue(
       text: updated,
       selection: TextSelection.collapsed(offset: newOffset),
@@ -151,7 +157,6 @@ class _InboxScreenState extends State<InboxScreen>
     setState(() {
       _submitting = false;
       _detectedCount = 0;
-      _suggestions.clear();
     });
     _controller.clear();
     _focusNode.unfocus();
@@ -166,11 +171,9 @@ class _InboxScreenState extends State<InboxScreen>
       return;
     }
 
-    showAppSnackBar(
-      context,
-      strings.addedTasks(count),
-      icon: Icons.auto_awesome_rounded,
-    );
+    // Без снекбара: мягкое зелёное свечение по контуру кнопки.
+    HapticFeedback.mediumImpact();
+    _glow.forward(from: 0);
   }
 
   void _toggleTheme() {
@@ -188,6 +191,7 @@ class _InboxScreenState extends State<InboxScreen>
     final state = context.watch<AppState>();
     final strings = state.strings;
     final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+    _controller.ghostColor = palette.textMuted.withValues(alpha: 0.55);
 
     return SafeArea(
       bottom: false,
@@ -252,6 +256,13 @@ class _InboxScreenState extends State<InboxScreen>
                             keyboardType: TextInputType.multiline,
                             textCapitalization: TextCapitalization.sentences,
                             cursorColor: palette.accent,
+                            // Пробел после известного слова превращает его
+                            // в хэштег: «ал» → «#алгебра».
+                            inputFormatters: <TextInputFormatter>[
+                              HashtagAutocompleteFormatter(
+                                resolver: state.resolver,
+                              ),
+                            ],
                             style: TextStyle(
                               fontSize: 16.5,
                               height: 1.45,
@@ -268,60 +279,6 @@ class _InboxScreenState extends State<InboxScreen>
                               ),
                             ),
                           ),
-                        ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOut,
-                          alignment: Alignment.topCenter,
-                          child: _suggestions.isEmpty
-                              ? const SizedBox(width: double.infinity)
-                              : Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: palette.accentSoft,
-                                      borderRadius: BorderRadius.circular(18),
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 7),
-                                          child: Icon(
-                                            Icons.auto_awesome_rounded,
-                                            size: 15,
-                                            color: palette.textPrimary,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Wrap(
-                                            spacing: 6,
-                                            runSpacing: 6,
-                                            children: <Widget>[
-                                              for (final suggestion
-                                                  in _suggestions)
-                                                SoftChip(
-                                                  label: suggestion,
-                                                  accent: true,
-                                                  icon:
-                                                      Icons.north_west_rounded,
-                                                  onTap: () => _insertSubject(
-                                                    suggestion,
-                                                    replaceActiveWord: true,
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
@@ -344,36 +301,83 @@ class _InboxScreenState extends State<InboxScreen>
                             },
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 54,
-                          child: FilledButton(
-                            onPressed: _submitting ? null : _distribute,
-                            child: _submitting
-                                ? SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: palette.onAccent,
+                        const SizedBox(height: 6),
+                        Text(
+                          strings.hashtagHint,
+                          style: TextStyle(
+                            fontSize: 10,
+                            height: 1.3,
+                            fontWeight: FontWeight.w600,
+                            color: palette.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        AnimatedBuilder(
+                          animation: _glow,
+                          builder: (context, child) {
+                            final t = _glow.value;
+                            final intensity = t == 0
+                                ? 0.0
+                                : (t <= 0.45 ? t / 0.45 : (1 - t) / 0.55);
+                            return Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: <BoxShadow>[
+                                  if (intensity > 0)
+                                    BoxShadow(
+                                      color: palette.success.withValues(
+                                        alpha: 0.40 * intensity,
+                                      ),
+                                      blurRadius: 18 + 14 * intensity,
+                                      spreadRadius: 1 + 3 * intensity,
                                     ),
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: <Widget>[
-                                      const Icon(
-                                        Icons.auto_awesome_rounded,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        strings.distributeLabel(
-                                          _detectedCount,
-                                        ),
-                                      ),
-                                    ],
+                                ],
+                                border: Border.all(
+                                  color: palette.success.withValues(
+                                    alpha: 0.85 * intensity,
                                   ),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: child,
+                            );
+                          },
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: FilledButton(
+                              onPressed: _submitting ? null : _distribute,
+                              style: FilledButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(17),
+                                ),
+                              ),
+                              child: _submitting
+                                  ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.2,
+                                        color: palette.onAccent,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: <Widget>[
+                                        const Icon(
+                                          Icons.auto_awesome_rounded,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          strings.distributeLabel(
+                                            _detectedCount,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
                           ),
                         ),
                       ],

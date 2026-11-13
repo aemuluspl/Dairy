@@ -36,164 +36,184 @@ class TaskCard extends StatelessWidget {
       completed: task.isCompleted,
       strings: strings,
       onSwiped: onDismissed,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 240),
-        opacity: task.isCompleted ? 0.62 : 1,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOut,
-          decoration: BoxDecoration(
-            color: palette.card,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: task.isCompleted
-                  ? palette.success.withValues(alpha: 0.35)
-                  : palette.border,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          // Карточка всегда полностью непрозрачная: подложка свайпа
+          // не должна просвечивать в спокойном состоянии.
+          color: palette.card,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: task.isCompleted
+                ? palette.success.withValues(alpha: 0.35)
+                : palette.border,
+          ),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Colors.black.withValues(
+                alpha: context.isDark ? 0.25 : 0.035,
+              ),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: context.isDark ? 0.25 : 0.035,
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: onTap,
+            onLongPress: onOpenDetails,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 15, 12, 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Hero(
+                    tag: taskHeroTag(task.id),
+                    child: SubjectAvatar(subject: task.subject, size: 44),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Expanded(
+                              child: AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 240),
+                                style: TextStyle(
+                                  fontSize: 15.5,
+                                  height: 1.25,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.2,
+                                  color: palette.textPrimary,
+                                  decoration: task.isCompleted
+                                      ? TextDecoration.lineThrough
+                                      : TextDecoration.none,
+                                  decorationColor: palette.textSecondary,
+                                ),
+                                child: Text(task.subject),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            _CheckButton(
+                              completed: task.isCompleted,
+                              onTap: onToggle,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 240),
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            height: 1.42,
+                            fontWeight: FontWeight.w500,
+                            color: palette.textSecondary,
+                            decoration: task.isCompleted
+                                ? TextDecoration.lineThrough
+                                : TextDecoration.none,
+                            decorationColor: palette.textSecondary,
+                          ),
+                          child: Text(
+                            task.description.isEmpty
+                                ? strings.noDescription
+                                : task.description,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: <Widget>[
+                            Icon(
+                              Icons.event_rounded,
+                              size: 13,
+                              color:
+                                  overdue ? palette.danger : palette.textMuted,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                formatDeadline(
+                                  task.deadline,
+                                  english: strings.isEnglish,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: overdue
+                                      ? palette.danger
+                                      : palette.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            _DetailsButton(
+                              label: strings.details,
+                              onTap: onOpenDetails,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Кнопка «Подробнее» с увеличенной зоной нажатия, чтобы палец не попадал
+/// в пикер даты по всей карточке.
+class _DetailsButton extends StatelessWidget {
+  const _DetailsButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          height: 44,
+          constraints: const BoxConstraints(minWidth: 104),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: palette.textSecondary,
                 ),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: palette.textMuted,
               ),
             ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(24),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(24),
-              onTap: onTap,
-              onLongPress: onOpenDetails,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 15, 14, 13),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Hero(
-                      tag: taskHeroTag(task.id),
-                      child: SubjectAvatar(subject: task.subject, size: 44),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Expanded(
-                                child: AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 240),
-                                  style: TextStyle(
-                                    fontSize: 15.5,
-                                    height: 1.25,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.2,
-                                    color: palette.textPrimary,
-                                    decoration: task.isCompleted
-                                        ? TextDecoration.lineThrough
-                                        : TextDecoration.none,
-                                    decorationColor: palette.textSecondary,
-                                  ),
-                                  child: Text(task.subject),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              _CheckButton(
-                                completed: task.isCompleted,
-                                onTap: onToggle,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 240),
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              height: 1.42,
-                              fontWeight: FontWeight.w500,
-                              color: palette.textSecondary,
-                              decoration: task.isCompleted
-                                  ? TextDecoration.lineThrough
-                                  : TextDecoration.none,
-                              decorationColor: palette.textSecondary,
-                            ),
-                            child: Text(
-                              task.description.isEmpty
-                                  ? strings.noDescription
-                                  : task.description,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(height: 9),
-                          Row(
-                            children: <Widget>[
-                              Icon(
-                                Icons.event_rounded,
-                                size: 13,
-                                color: overdue
-                                    ? palette.danger
-                                    : palette.textMuted,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  formatDeadline(
-                                    task.deadline,
-                                    english: strings.isEnglish,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: overdue
-                                        ? palette.danger
-                                        : palette.textSecondary,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: onOpenDetails,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 2,
-                                    horizontal: 2,
-                                  ),
-                                  child: Row(
-                                    children: <Widget>[
-                                      Text(
-                                        strings.details,
-                                        style: TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: palette.textMuted,
-                                        ),
-                                      ),
-                                      Icon(
-                                        Icons.chevron_right_rounded,
-                                        size: 16,
-                                        color: palette.textMuted,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ),
         ),
       ),
@@ -216,21 +236,39 @@ class _CheckButton extends StatelessWidget {
         HapticFeedback.selectionClick();
         onTap();
       },
-      child: Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 2),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          transitionBuilder: (child, animation) => ScaleTransition(
-            scale: animation,
-            child: FadeTransition(opacity: animation, child: child),
-          ),
-          child: Icon(
-            completed
-                ? Icons.check_circle_rounded
-                : Icons.radio_button_unchecked_rounded,
-            key: ValueKey<bool>(completed),
-            size: 22,
-            color: completed ? palette.success : palette.textMuted,
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: Center(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            // Оба состояния лежат в стеке: размер не скачет, морфинг плавный.
+            layoutBuilder: (currentChild, previousChildren) => Stack(
+              alignment: Alignment.center,
+              children: <Widget>[
+                ...previousChildren,
+                if (currentChild != null) currentChild,
+              ],
+            ),
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.82, end: 1).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                ),
+                child: child,
+              ),
+            ),
+            child: Icon(
+              completed
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              key: ValueKey<bool>(completed),
+              size: 23,
+              color: completed ? palette.success : palette.textMuted,
+            ),
           ),
         ),
       ),
@@ -240,9 +278,8 @@ class _CheckButton extends StatelessWidget {
 
 /// Свайп-действие с цельным скруглённым фоном.
 ///
-/// Встроенный [Dismissible] обрезает подложку прямоугольником по линии сдвига,
-/// из-за чего у скруглённой карточки проступали чёрные уголки. Здесь подложка —
-/// один скруглённый прямоугольник во всю ширину, а карточка едет поверх него.
+/// Подложка «Выполнено / Вернуть» появляется только в момент оттягивания
+/// и всегда лежит строго под карточкой.
 class _SwipeAction extends StatefulWidget {
   const _SwipeAction({
     required this.completed,
@@ -344,6 +381,8 @@ class _SwipeActionState extends State<_SwipeAction>
 
   @override
   Widget build(BuildContext context) {
+    final showBackground = _offset.abs() > 0.5;
+
     return GestureDetector(
       onHorizontalDragStart: _handleDragStart,
       onHorizontalDragUpdate: _handleDragUpdate,
@@ -353,16 +392,18 @@ class _SwipeActionState extends State<_SwipeAction>
         _animateTo(0);
       },
       child: Stack(
-        clipBehavior: Clip.none,
+        clipBehavior: Clip.hardEdge,
         children: <Widget>[
-          Positioned.fill(
-            child: _SwipeBackground(
-              completed: widget.completed,
-              alignment:
-                  _offset >= 0 ? Alignment.centerLeft : Alignment.centerRight,
-              strings: widget.strings,
+          // Фон существует только пока карточка оттянута.
+          if (showBackground)
+            Positioned.fill(
+              child: _SwipeBackground(
+                completed: widget.completed,
+                alignment:
+                    _offset >= 0 ? Alignment.centerLeft : Alignment.centerRight,
+                strings: widget.strings,
+              ),
             ),
-          ),
           Transform.translate(
             offset: Offset(_offset, 0),
             child: widget.child,

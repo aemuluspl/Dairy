@@ -61,6 +61,10 @@ class Strings {
       _t('Готово: ${tasksCount(count)}', 'Added: ${tasksCount(count)}');
   String get lightTheme => _t('Светлая тема', 'Light theme');
   String get darkTheme => _t('Тёмная тема', 'Dark theme');
+  String get hashtagHint => _t(
+        'Слово дополнится само — пробел превратит его в #хэштег',
+        'Words complete themselves — space turns them into a #hashtag',
+      );
 
   // ---------------------------------------------------------------------------
   // Tasks
@@ -172,6 +176,26 @@ class Strings {
         'Расписание хранится в локальной базе Hive и попадает в JSON-экспорт.',
         'The schedule is stored locally in Hive and included in the JSON export.',
       );
+  String get holidaysTitle => _t('Каникулы и выходные', 'Days off');
+  String get holidaysHint => _t(
+        'В эти дни уроков нет — парсер их пропускает',
+        'No lessons on these days — the parser skips them',
+      );
+  String get addHolidays => _t('Добавить каникулы', 'Add days off');
+  String get noHolidays => _t('Каникул нет', 'No days off yet');
+  String get holidaysNow => _t('Каникулы', 'Days off');
+  String holidayPeriod(String start, String end) =>
+      start == end ? start : '$start — $end';
+  String get removeHoliday => _t('Убрать', 'Remove');
+  String get saturdayOffTitle => _t('Суббота — выходной', 'Saturday off');
+  String get saturdayOffHint => _t(
+        'Если в субботу нет уроков, включи этот режим',
+        'Turn on if there are no lessons on Saturday',
+      );
+  String get timeStartTitle => _t('Начало урока', 'Lesson start');
+  String get timeEndTitle => _t('Конец урока', 'Lesson end');
+  String get timeHours => _t('Часы', 'Hours');
+  String get timeMinutes => _t('Минуты', 'Minutes');
   String get classLabel => '9 «Б»';
 
   // ---------------------------------------------------------------------------
@@ -272,7 +296,7 @@ class Strings {
   String get exportFormat => _t('Формат экспорта', 'Export format');
   String get schemaVersion => _t('Версия схемы', 'Schema version');
   String get storage => _t('Хранилище', 'Storage');
-  String get footerTitle => 'Hash · 1.0.1';
+  String get footerTitle => 'Hash · 1.0.2';
   String get footerSubtitle => _t(
         'Первый модуль единой информационной базы',
         'First module of a unified database',

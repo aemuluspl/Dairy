@@ -34,7 +34,6 @@ class ScheduleScreen extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context) {
-    final palette = context.palette;
     final state = context.watch<AppState>();
     final strings = state.strings;
     final now = DateTime.now();
@@ -114,6 +113,11 @@ class ScheduleScreen extends StatelessWidget {
                             icon: _liveIcon(live),
                             accent: true,
                           ),
+                          if (state.calendar.isHoliday(now))
+                            SoftChip(
+                              label: strings.holidaysNow,
+                              icon: Icons.beach_access_rounded,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -136,17 +140,6 @@ class ScheduleScreen extends StatelessWidget {
                                     DateTime.monday),
                           ),
                         ),
-                      const SizedBox(height: 4),
-                      Text(
-                        strings.scheduleStorageNote,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          height: 1.4,
-                          fontWeight: FontWeight.w600,
-                          color: palette.textMuted,
-                        ),
-                      ),
                     ],
                   ),
                 ),

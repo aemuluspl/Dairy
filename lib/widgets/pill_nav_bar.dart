@@ -40,10 +40,7 @@ class PillNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final items = _items;
-    // Плотный фон под панелью: на Android из-под скруглённой «таблетки»
-    // проступал чёрный прямоугольник (тот же эффект, что был у карточек
-    // при свайпе). Теперь низ экрана закрашен цветом фона, и под панелью
-    // физически нечему чернеть.
+    // Плотный фон под панелью: под скруглённой «таблеткой» нечему чернеть.
     return ColoredBox(
       color: palette.background,
       child: SafeArea(
@@ -61,27 +58,49 @@ class PillNavBar extends StatelessWidget {
                   color: palette.card,
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(color: palette.border),
-                  // Без размытой тени: BoxShadow на Impeller у некоторых
-                  // устройств рисуется прямоугольной чёрной подложкой.
                 ),
-                // Подсветка выбранного пункта — это фон самого пункта.
-                // Никаких анимированных позиций и обрезки: именно они
-                // оставляли чёрный прямоугольник при переключении вкладок.
-                child: Row(
-                  children: <Widget>[
-                    for (var index = 0; index < items.length; index++)
-                      Expanded(
-                        child: _NavButton(
-                          data: items[index],
-                          selected: currentIndex == index,
-                          onTap: () {
-                            if (currentIndex == index) return;
-                            HapticFeedback.selectionClick();
-                            onSelect(index);
-                          },
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final itemWidth = constraints.maxWidth / items.length;
+                    return Stack(
+                      children: <Widget>[
+                        // Ездящая капсула: один слой, без обрезки и теней.
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOutCubic,
+                          left: currentIndex * itemWidth,
+                          top: 0,
+                          bottom: 0,
+                          width: itemWidth,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: palette.accent,
+                                borderRadius: BorderRadius.circular(22),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                  ],
+                        Row(
+                          children: <Widget>[
+                            for (var index = 0; index < items.length; index++)
+                              Expanded(
+                                child: _NavButton(
+                                  data: items[index],
+                                  selected: currentIndex == index,
+                                  onTap: () {
+                                    if (currentIndex == index) return;
+                                    HapticFeedback.selectionClick();
+                                    onSelect(index);
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -113,7 +132,6 @@ class _NavButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final color = selected ? palette.onAccent : palette.textMuted;
 
     return Semantics(
       button: true,
@@ -122,40 +140,38 @@ class _NavButton extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 260),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(end: selected ? 1 : 0),
+          duration: const Duration(milliseconds: 280),
           curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
-            color: selected ? palette.accent : Colors.transparent,
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                AnimatedScale(
-                  scale: selected ? 1.08 : 1,
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOut,
-                  child: Icon(data.icon, size: 22, color: color),
-                ),
-                const SizedBox(height: 3),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 220),
-                  style: TextStyle(
-                    fontFamily: 'Nunito',
-                    fontSize: 9.5,
-                    height: 1,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-                    color: color,
+          builder: (context, t, _) {
+            // Плавный переход цвета вместо резкого перекрашивания.
+            final color = Color.lerp(palette.textMuted, palette.onAccent, t)!;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Transform.scale(
+                    scale: 1 + 0.08 * t,
+                    child: Icon(data.icon, size: 22, color: color),
                   ),
-                  child: Text(data.label),
-                ),
-              ],
-            ),
-          ),
+                  const SizedBox(height: 3),
+                  Text(
+                    data.label,
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 9.5,
+                      height: 1,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

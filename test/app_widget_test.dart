@@ -151,14 +151,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(state.themeMode, ThemeMode.dark);
 
-    // Экспорт ниже — прокручиваем настройки.
+    // Данные ниже — прокручиваем настройки.
     final settingsList = find.descendant(
       of: find.byType(SettingsScreen),
       matching: find.byType(ListView),
     );
     await tester.drag(settingsList, const Offset(0, -500));
     await tester.pumpAndSettle();
-    expect(find.text('Экспорт базы (JSON)'), findsOneWidget);
+    expect(find.text('Резервная копия'), findsOneWidget);
+    expect(find.text('Журнал'), findsOneWidget);
 
     // Даём снекбарам исчезнуть, чтобы не осталось таймеров.
     await tester.pump(const Duration(seconds: 3));

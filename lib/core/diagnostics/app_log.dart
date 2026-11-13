@@ -101,7 +101,8 @@ class AppLog {
 
   static String _timestamp(DateTime time) {
     String two(int value) => value.toString().padLeft(2, '0');
-    return '${time.year}-${two(time.month)}-${two(time.day)} '
+    // Привычный русский порядок: день, месяц, год.
+    return '${two(time.day)}.${two(time.month)}.${time.year} '
         '${two(time.hour)}:${two(time.minute)}:${two(time.second)}';
   }
 }
