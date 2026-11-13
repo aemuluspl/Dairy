@@ -54,28 +54,23 @@ class SubjectResolver {
     return result;
   }
 
-  /// Inline-дополнение: «ал» → слово «алгебра», хвост «гебра».
+  /// Inline-дополнение до **канонического** названия предмета.
   ///
-  /// Берётся самый короткий подходящий вариант, чтобы подсказка была
-  /// максимально близка к уже набранному слову.
+  /// «ал» → «Алгебра», хвост «гебра». Алиасы используются только для
+  /// распознавания предмета при вставке, но призрачный хвост всегда
+  /// достраивает каноническое имя.
   ({String subject, String word, String completion})? completionFor(
     String prefix,
   ) {
     final normalizedPrefix = _normalize(prefix);
     if (normalizedPrefix.length < 2) return null;
 
-    final matches = <({String subject, String word, int length})>[];
-    for (final entry in _aliases.entries) {
-      for (final candidate in <String>[entry.key, ...entry.value]) {
-        final normalized = _normalize(candidate);
-        if (normalized.length > normalizedPrefix.length &&
-            normalized.startsWith(normalizedPrefix)) {
-          matches.add((
-            subject: entry.key,
-            word: candidate,
-            length: normalized.length,
-          ));
-        }
+    final matches = <({String subject, int length})>[];
+    for (final subject in _aliases.keys) {
+      final normalized = _normalize(subject);
+      if (normalized.length > normalizedPrefix.length &&
+          normalized.startsWith(normalizedPrefix)) {
+        matches.add((subject: subject, length: normalized.length));
       }
     }
     if (matches.isEmpty) return null;
@@ -83,17 +78,17 @@ class SubjectResolver {
     matches.sort((a, b) {
       final byLength = a.length.compareTo(b.length);
       if (byLength != 0) return byLength;
-      return a.word.compareTo(b.word);
+      return a.subject.compareTo(b.subject);
     });
 
-    final best = matches.first;
-    final cut = _indexAfterNormalized(best.word, normalizedPrefix.length);
-    if (cut == null || cut >= best.word.length) return null;
+    final best = matches.first.subject;
+    final cut = _indexAfterNormalized(best, normalizedPrefix.length);
+    if (cut == null || cut >= best.length) return null;
 
     return (
-      subject: best.subject,
-      word: best.word,
-      completion: best.word.substring(cut),
+      subject: best,
+      word: best,
+      completion: best.substring(cut),
     );
   }
 

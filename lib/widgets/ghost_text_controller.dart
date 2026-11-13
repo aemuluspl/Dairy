@@ -89,7 +89,9 @@ class HashtagAutocompleteFormatter extends TextInputFormatter {
 
     final known = resolver.resolveOrNull(bare);
     final completion = known == null ? resolver.completionFor(bare) : null;
-    final fullWord = known != null ? bare : completion?.word;
+    // Для известного слова берём каноническое имя, а не введённый алиас:
+    // «физ» + пробел → #физика, «общага» → #обществознание.
+    final fullWord = known ?? completion?.word;
     if (fullWord == null) return newValue;
 
     final replacement = '#${resolver.tagFor(fullWord)} ';

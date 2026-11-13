@@ -88,6 +88,20 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
+  Future<void> _deleteBySwipe(Task task) async {
+    if (_hiddenTaskIds.contains(task.id)) return;
+
+    final state = context.read<AppState>();
+    await state.deleteTask(task.id);
+    if (!mounted) return;
+
+    showAppSnackBar(
+      context,
+      state.strings.deletedSnack(task.subject),
+      icon: Icons.delete_outline_rounded,
+    );
+  }
+
   void _openDetails(Task task) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -131,6 +145,7 @@ class _TasksScreenState extends State<TasksScreen> {
             onTap: () => _pickDate(task),
             onToggle: () => _toggle(task),
             onDismissed: () => _toggleBySwipe(task),
+            onDelete: () => _deleteBySwipe(task),
             onOpenDetails: () => _openDetails(task),
           ),
         ),

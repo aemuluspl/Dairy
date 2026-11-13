@@ -100,6 +100,8 @@ class Strings {
   String get details => _t('Подробнее', 'Details');
   String get cardDone => _t('Выполнено', 'Done');
   String get cardUndo => _t('Вернуть', 'Undo');
+  String deletedSnack(String subject) =>
+      _t('Удалено: $subject', 'Deleted: $subject');
 
   // ---------------------------------------------------------------------------
   // Task details
@@ -296,7 +298,7 @@ class Strings {
   String get exportFormat => _t('Формат экспорта', 'Export format');
   String get schemaVersion => _t('Версия схемы', 'Schema version');
   String get storage => _t('Хранилище', 'Storage');
-  String get footerTitle => 'Hash · 1.0.2';
+  String get footerTitle => 'Hash · 1.0.3';
   String get footerSubtitle => _t(
         'Первый модуль единой информационной базы',
         'First module of a unified database',

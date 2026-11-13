@@ -136,18 +136,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     tooltip: strings.close,
                     onTap: () => Navigator.of(context).pop(),
                   ),
-                  trailing: RoundIconButton(
-                    icon: Icons.delete_outline_rounded,
-                    tooltip: strings.delete,
-                    iconColor: palette.danger,
-                    onTap: _delete,
-                  ),
                 ),
                 const SizedBox(height: 10),
                 Expanded(
                   child: ListView(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 24),
+                    padding: const EdgeInsets.only(bottom: 10),
                     children: <Widget>[
                       const SizedBox(height: 16),
                       Center(
@@ -297,6 +291,29 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         onTap: _toggle,
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: FilledButton.icon(
+                    onPressed: _delete,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: palette.danger,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 19),
+                    label: Text(
+                      strings.delete,
+                      style: const TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ),
               ],

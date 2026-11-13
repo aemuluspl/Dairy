@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:school_diary/data/models/holiday.dart';
 import 'package:school_diary/data/models/lesson.dart';
@@ -5,6 +6,7 @@ import 'package:school_diary/data/seed/default_aliases.dart';
 import 'package:school_diary/domain/homework_parser.dart';
 import 'package:school_diary/domain/school_calendar.dart';
 import 'package:school_diary/domain/subject_resolver.dart';
+import 'package:school_diary/widgets/ghost_text_controller.dart';
 
 void main() {
   late HomeworkParser parser;
@@ -77,6 +79,44 @@ void main() {
       expect(resolver.suggest('общ'), contains('Обществознание'));
       expect(resolver.suggest('физ'), contains('Физика'));
       expect(resolver.suggest('физ'), contains('Физкультура'));
+    });
+
+    test('inline-дополнение достраивает каноническое название', () {
+      final algebra = resolver.completionFor('ал');
+      expect(algebra?.word, 'Алгебра');
+      expect(algebra?.completion, 'гебра');
+
+      final social = resolver.completionFor('общ');
+      expect(social?.word, 'Обществознание');
+      expect(social?.completion, 'ествознание');
+    });
+
+    test('пробел ставит канонический тег, а не алиас', () {
+      final formatter = HashtagAutocompleteFormatter(resolver: resolver);
+
+      final fromAlias = formatter.formatEditUpdate(
+        const TextEditingValue(
+          text: 'физ',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+        const TextEditingValue(
+          text: 'физ ',
+          selection: TextSelection.collapsed(offset: 4),
+        ),
+      );
+      expect(fromAlias.text, '#физика ');
+
+      final fromPrefix = formatter.formatEditUpdate(
+        const TextEditingValue(
+          text: 'ал',
+          selection: TextSelection.collapsed(offset: 2),
+        ),
+        const TextEditingValue(
+          text: 'ал ',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+      );
+      expect(fromPrefix.text, '#алгебра ');
     });
 
     test('tagFor строит валидный тег', () {

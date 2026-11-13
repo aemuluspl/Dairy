@@ -46,6 +46,7 @@ void main() {
     WidgetTester tester, {
     required bool completed,
     required Future<void> Function() onSwiped,
+    Future<void> Function()? onDeleted,
   }) async {
     tester.view.physicalSize = const Size(430, 260);
     tester.view.devicePixelRatio = 1;
@@ -80,6 +81,7 @@ void main() {
                 onTap: () {},
                 onToggle: () async {},
                 onDismissed: onSwiped,
+                onDelete: onDeleted ?? () async {},
                 onOpenDetails: () {},
               ),
             ),
@@ -104,16 +106,47 @@ void main() {
     expect(swiped, isTrue);
   });
 
-  testWidgets('свайп вправо возвращает задачу', (WidgetTester tester) async {
+  testWidgets('свайп вправо удаляет задачу', (WidgetTester tester) async {
     var swiped = false;
-    await pumpCard(tester, completed: true, onSwiped: () async {
-      swiped = true;
-    });
+    var deleted = false;
+    await pumpCard(
+      tester,
+      completed: true,
+      onSwiped: () async {
+        swiped = true;
+      },
+      onDeleted: () async {
+        deleted = true;
+      },
+    );
 
     await tester.fling(find.byType(TaskCard), const Offset(260, 0), 1200);
     await tester.pumpAndSettle();
 
-    expect(swiped, isTrue);
+    expect(deleted, isTrue);
+    expect(swiped, isFalse);
+  });
+
+  testWidgets('свайп вправо показывает красное действие «Удалить»', (
+    WidgetTester tester,
+  ) async {
+    await pumpCard(tester, completed: false, onSwiped: () async {});
+
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.byType(TaskCard)));
+    await gesture.moveBy(const Offset(30, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(90, 0));
+    await tester.pump();
+
+    expect(find.text('Удалить'), findsOneWidget);
+    expect(
+      find.byIcon(Icons.delete_outline_rounded),
+      findsWidgets,
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('короткий свайп не срабатывает и карточка возвращается', (

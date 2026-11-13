@@ -17,11 +17,7 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  static const int _pageCount = 4;
-  static const int _initialPage = 4000;
-
-  late final PageController _pageController;
-  late int _currentIndex;
+  late int _currentIndex = _tabFromUrl();
 
   static const List<Widget> _pages = <Widget>[
     InboxScreen(),
@@ -46,40 +42,13 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = _tabFromUrl();
-    _pageController = PageController(
-      initialPage: _initialPage + _currentIndex,
-    );
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
   void _select(int index) {
     if (index == _currentIndex) return;
     FocusManager.instance.primaryFocus?.unfocus();
 
-    final currentPage = _pageController.hasClients
-        ? (_pageController.page ?? _initialPage.toDouble()).round()
-        : _initialPage + _currentIndex;
-
-    // Идём к соседней вкладке по короткому пути: карусель зациклена,
-    // поэтому из New в Settings — один свайп влево, а не пролёт через всё.
-    var delta = (index - currentPage % _pageCount) % _pageCount;
-    if (delta > _pageCount ~/ 2) delta -= _pageCount;
-
+    // IndexedStack переключает вкладки мгновенно: промежуточные экраны
+    // не пролистываются, состояние каждой страницы сохраняется.
     setState(() => _currentIndex = index);
-    _pageController.animateToPage(
-      currentPage + delta,
-      duration: const Duration(milliseconds: 380),
-      curve: Curves.easeOutCubic,
-    );
   }
 
   @override
@@ -89,24 +58,24 @@ class _HomeShellState extends State<HomeShell> {
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: PageView.builder(
-        controller: _pageController,
-        // Смена вкладок — только тапом по навбару. Свайп отключён,
-        // чтобы не конфликтовать с жестами карточек и расписания.
-        physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: (page) {
-          final index = page % _pageCount;
-          if (index != _currentIndex) setState(() => _currentIndex = index);
-        },
-        itemBuilder: (context, page) => _pages[page % _pageCount],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
       ),
-      bottomNavigationBar: keyboardOpen
-          ? null
-          : PillNavBar(
-              currentIndex: _currentIndex,
-              onSelect: _select,
-              stylusWithLines: state.newIconLines,
-            ),
+      // Высоту нижней панели анимируем вместе с клавиатурой, чтобы при её
+      // скрытии «Распределить» и контент не прыгали вниз одним кадром.
+      bottomNavigationBar: AnimatedSize(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.bottomCenter,
+        child: keyboardOpen
+            ? const SizedBox(width: double.infinity)
+            : PillNavBar(
+                currentIndex: _currentIndex,
+                onSelect: _select,
+                stylusWithLines: state.newIconLines,
+              ),
+      ),
     );
   }
 }

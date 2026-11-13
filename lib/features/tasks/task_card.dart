@@ -17,6 +17,7 @@ class TaskCard extends StatelessWidget {
     required this.onTap,
     required this.onToggle,
     required this.onDismissed,
+    required this.onDelete,
     required this.onOpenDetails,
   });
 
@@ -24,6 +25,7 @@ class TaskCard extends StatelessWidget {
   final VoidCallback onTap;
   final Future<void> Function() onToggle;
   final Future<void> Function() onDismissed;
+  final Future<void> Function() onDelete;
   final VoidCallback onOpenDetails;
 
   @override
@@ -35,7 +37,8 @@ class TaskCard extends StatelessWidget {
     return _SwipeAction(
       completed: task.isCompleted,
       strings: strings,
-      onSwiped: onDismissed,
+      onToggle: onDismissed,
+      onDelete: onDelete,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
@@ -278,19 +281,22 @@ class _CheckButton extends StatelessWidget {
 
 /// Свайп-действие с цельным скруглённым фоном.
 ///
-/// Подложка «Выполнено / Вернуть» появляется только в момент оттягивания
-/// и всегда лежит строго под карточкой.
+/// Влево — зелёное «Выполнено / Вернуть», вправо — красное «Удалить».
+/// Подложка появляется только в момент оттягивания и всегда лежит строго
+/// под непрозрачной карточкой.
 class _SwipeAction extends StatefulWidget {
   const _SwipeAction({
     required this.completed,
     required this.strings,
-    required this.onSwiped,
+    required this.onToggle,
+    required this.onDelete,
     required this.child,
   });
 
   final bool completed;
   final Strings strings;
-  final Future<void> Function() onSwiped;
+  final Future<void> Function() onToggle;
+  final Future<void> Function() onDelete;
   final Widget child;
 
   @override
@@ -363,15 +369,23 @@ class _SwipeActionState extends State<_SwipeAction>
       _animateTo(0);
       return;
     }
-    final direction = _offset != 0 ? _offset.sign : velocity.sign;
-    _animateTo(direction * _width, onDone: _finishSwipe);
+    final direction = _offset != 0 ? _offset : velocity;
+    final delete = direction > 0;
+    _animateTo(
+      direction.sign * _width,
+      onDone: () => _finishSwipe(delete: delete),
+    );
   }
 
-  Future<void> _finishSwipe() async {
+  Future<void> _finishSwipe({required bool delete}) async {
     if (!mounted || _busy) return;
     HapticFeedback.mediumImpact();
     setState(() => _busy = true);
-    await widget.onSwiped();
+    if (delete) {
+      await widget.onDelete();
+    } else {
+      await widget.onToggle();
+    }
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -382,6 +396,8 @@ class _SwipeActionState extends State<_SwipeAction>
   @override
   Widget build(BuildContext context) {
     final showBackground = _offset.abs() > 0.5;
+    // Свайп вправо открывает левую подложку — удаление.
+    final delete = _offset > 0;
 
     return GestureDetector(
       onHorizontalDragStart: _handleDragStart,
@@ -398,9 +414,8 @@ class _SwipeActionState extends State<_SwipeAction>
           if (showBackground)
             Positioned.fill(
               child: _SwipeBackground(
+                delete: delete,
                 completed: widget.completed,
-                alignment:
-                    _offset >= 0 ? Alignment.centerLeft : Alignment.centerRight,
                 strings: widget.strings,
               ),
             ),
@@ -416,40 +431,48 @@ class _SwipeActionState extends State<_SwipeAction>
 
 class _SwipeBackground extends StatelessWidget {
   const _SwipeBackground({
+    required this.delete,
     required this.completed,
-    required this.alignment,
     required this.strings,
   });
 
+  final bool delete;
   final bool completed;
-  final Alignment alignment;
   final Strings strings;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final accent = delete ? palette.danger : palette.success;
+
     return Container(
-      alignment: alignment,
+      alignment: delete ? Alignment.centerLeft : Alignment.centerRight,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: palette.successSoft,
+        color: delete ? palette.dangerSoft : palette.successSoft,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Icon(
-            completed ? Icons.undo_rounded : Icons.check_circle_outline_rounded,
-            color: palette.success,
+            delete
+                ? Icons.delete_outline_rounded
+                : (completed
+                    ? Icons.undo_rounded
+                    : Icons.check_circle_outline_rounded),
+            color: accent,
             size: 22,
           ),
           const SizedBox(width: 8),
           Text(
-            completed ? strings.cardUndo : strings.cardDone,
+            delete
+                ? strings.delete
+                : (completed ? strings.cardUndo : strings.cardDone),
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w800,
-              color: palette.success,
+              color: accent,
             ),
           ),
         ],
