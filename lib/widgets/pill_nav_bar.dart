@@ -9,6 +9,7 @@ class PillNavBar extends StatelessWidget {
     required this.currentIndex,
     required this.onSelect,
     this.stylusWithLines = false,
+    this.showSettingsBadge = false,
   });
 
   /// Сколько места снизу нужно оставлять экранам с `extendBody: true`,
@@ -20,6 +21,9 @@ class PillNavBar extends StatelessWidget {
 
   /// Иконка вкладки New: стилус с линиями или обычный карандаш.
   final bool stylusWithLines;
+
+  /// Красная точка на вкладке Settings, когда доступно обновление.
+  final bool showSettingsBadge;
 
   List<_NavItemData> get _items => <_NavItemData>[
         _NavItemData(
@@ -91,6 +95,8 @@ class PillNavBar extends StatelessWidget {
                               child: _NavButton(
                                 data: items[index],
                                 selected: currentIndex == index,
+                                badge: showSettingsBadge &&
+                                    index == items.length - 1,
                                 onTap: () {
                                   if (currentIndex == index) return;
                                   HapticFeedback.selectionClick();
@@ -124,11 +130,13 @@ class _NavButton extends StatelessWidget {
     required this.data,
     required this.selected,
     required this.onTap,
+    this.badge = false,
   });
 
   final _NavItemData data;
   final bool selected;
   final VoidCallback onTap;
+  final bool badge;
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +164,30 @@ class _NavButton extends StatelessWidget {
                 children: <Widget>[
                   Transform.scale(
                     scale: 1 + 0.08 * t,
-                    child: Icon(data.icon, size: 22, color: color),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: <Widget>[
+                        Icon(data.icon, size: 22, color: color),
+                        if (badge)
+                          Positioned(
+                            right: -2,
+                            top: -1,
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: palette.danger,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color:
+                                      selected ? palette.accent : palette.card,
+                                  width: 1.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(

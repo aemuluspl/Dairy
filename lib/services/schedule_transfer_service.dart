@@ -7,20 +7,35 @@ import '../data/models/lesson.dart';
 class ScheduleImport {
   const ScheduleImport({
     required this.schedule,
-    required this.bells,
+    required this.bellsByDay,
     required this.aliases,
   });
 
   final Map<int, List<Lesson>> schedule;
-  final List<Bell> bells;
+
+  /// Ручная сетка звонков по дням 1–7 (формат v2).
+  final Map<int, List<Bell>> bellsByDay;
+
   final Map<String, List<String>> aliases;
+
+  /// Плоский список всех звонков — удобно для проверок и текста.
+  List<Bell> get bells {
+    final seen = <String>{};
+    final result = <Bell>[];
+    for (var day = DateTime.monday; day <= DateTime.sunday; day++) {
+      for (final bell in bellsByDay[day] ?? const <Bell>[]) {
+        if (seen.add('${bell.start}-${bell.end}')) result.add(bell);
+      }
+    }
+    return result;
+  }
 }
 
 /// Импорт и экспорт расписания: JSON и человекочитаемый текст.
 class ScheduleTransferService {
   const ScheduleTransferService._();
 
-  static const int version = 1;
+  static const int version = 2;
   static const String format = 'hash.schedule';
 
   static const List<String> _weekdayKeys = <String>[
@@ -62,7 +77,7 @@ class ScheduleTransferService {
   static String exportJson({
     required Map<int, List<Lesson>> schedule,
     required Map<String, List<String>> aliases,
-    List<Bell>? bells,
+    Map<int, List<Bell>>? bellsByDay,
   }) {
     final days = <String, dynamic>{};
     for (var day = DateTime.monday; day <= DateTime.saturday; day++) {
@@ -71,13 +86,27 @@ class ScheduleTransferService {
           .toList(growable: false);
     }
 
+    // v2: звонки хранятся по дням, чтобы у каждого дня могла быть
+    // своя сетка (например, дополнительный урок РОВ в понедельник).
+    final bells = <String, dynamic>{};
+    final source = bellsByDay ??
+        <int, List<Bell>>{
+          for (var day = DateTime.monday; day <= DateTime.saturday; day++)
+            day: deriveBells(<int, List<Lesson>>{
+              day: schedule[day] ?? const <Lesson>[],
+            }),
+        };
+    for (var day = DateTime.monday; day <= DateTime.saturday; day++) {
+      final list = source[day] ?? const <Bell>[];
+      if (list.isEmpty) continue;
+      bells['$day'] = list.map((bell) => bell.toMap()).toList(growable: false);
+    }
+
     final payload = <String, dynamic>{
       'format': format,
       'version': version,
       'schedule': days,
-      'bells': (bells ?? deriveBells(schedule))
-          .map((bell) => bell.toMap())
-          .toList(growable: false),
+      'bells': bells,
       'aliases': aliases,
     };
 
@@ -155,16 +184,18 @@ class ScheduleTransferService {
 
     if (rawSchedule is! Map) return null;
 
-    final bells = <Bell>[];
-    if (rawBells is List) {
-      for (final item in rawBells) {
-        if (item is Map) {
-          bells.add(Bell.fromMap(item));
-        } else if (item is String) {
-          final parsed = _parseBellLine(item);
-          if (parsed != null) bells.add(parsed);
-        }
+    // v2: bells — карта {день: [{start, end}, ...]}. v1: плоский список.
+    final bellsByDay = <int, List<Bell>>{};
+    final legacyBells = <Bell>[];
+    if (rawBells is Map) {
+      for (final entry in rawBells.entries) {
+        final day = _dayNumber(entry.key.toString());
+        if (day == null) continue;
+        final list = _parseBells(entry.value);
+        if (list.isNotEmpty) bellsByDay[day] = list;
       }
+    } else if (rawBells is List) {
+      legacyBells.addAll(_parseBells(rawBells));
     }
 
     final schedule = <int, List<Lesson>>{
@@ -181,7 +212,10 @@ class ScheduleTransferService {
       for (var index = 0; index < rawLessons.length; index++) {
         final item = rawLessons[index];
         if (item is! Map) continue;
-        final fallback = index < bells.length ? bells[index] : null;
+        final dayBells = bellsByDay[day] ?? const <Bell>[];
+        final fallback = index < dayBells.length
+            ? dayBells[index]
+            : (index < legacyBells.length ? legacyBells[index] : null);
         final lesson = Lesson(
           subject: item['subject']?.toString() ?? 'Предмет',
           start: item['start']?.toString() ?? fallback?.start ?? '08:00',
@@ -205,7 +239,26 @@ class ScheduleTransferService {
       }
     }
 
-    return ScheduleImport(schedule: schedule, bells: bells, aliases: aliases);
+    return ScheduleImport(
+      schedule: schedule,
+      bellsByDay: bellsByDay,
+      aliases: aliases,
+    );
+  }
+
+  static List<Bell> _parseBells(Object? raw) {
+    final result = <Bell>[];
+    if (raw is! List) return result;
+    for (final item in raw) {
+      if (item is Map) {
+        result.add(Bell.fromMap(item));
+      } else if (item is String) {
+        final parsed = _parseBellLine(item);
+        if (parsed != null) result.add(parsed);
+      }
+    }
+    result.sort((a, b) => a.start.compareTo(b.start));
+    return result;
   }
 
   static ScheduleImport? _fromText(String text) {
@@ -272,7 +325,11 @@ class ScheduleTransferService {
     if (!foundDay) return null;
     return ScheduleImport(
       schedule: schedule,
-      bells: bells,
+      bellsByDay: <int, List<Bell>>{
+        if (bells.isNotEmpty)
+          for (var day = DateTime.monday; day <= DateTime.saturday; day++)
+            day: List<Bell>.from(bells),
+      },
       aliases: const <String, List<String>>{},
     );
   }

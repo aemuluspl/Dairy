@@ -129,6 +129,7 @@ class _HomeShellState extends State<HomeShell> {
                 currentIndex: _currentIndex,
                 onSelect: _select,
                 stylusWithLines: state.newIconLines,
+                showSettingsBadge: state.updateAvailable,
               ),
       ),
     );

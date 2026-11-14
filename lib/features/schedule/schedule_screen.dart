@@ -58,10 +58,19 @@ class ScheduleScreen extends StatelessWidget {
       DateTime.thursday,
       DateTime.friday,
       DateTime.saturday,
-    ].where((day) => !(day == DateTime.saturday && state.saturdayOff));
+    ];
     final totalLessons = days.fold<int>(
       0,
-      (sum, day) => sum + state.lessonsFor(day).length,
+      (sum, day) =>
+          sum +
+          (day == DateTime.saturday && state.saturdayOff
+              ? 0
+              : state.lessonsFor(day).length),
+    );
+    // Суббота остаётся в списке даже выходным, поэтому пустое состояние
+    // показываем только когда уроков нет ни в один из дней.
+    final hasAnyLessons = days.any(
+      (day) => state.lessonsFor(day).isNotEmpty,
     );
 
     return SafeArea(
@@ -81,7 +90,7 @@ class ScheduleScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              if (totalLessons == 0)
+              if (!hasAnyLessons)
                 Expanded(
                   child: Column(
                     children: <Widget>[
@@ -316,6 +325,19 @@ class _DayCardState extends State<_DayCard> {
   bool get _dayOff => _isConfiguredDayOff;
 
   @override
+  void didUpdateWidget(covariant _DayCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Субботу только что сделали выходным — сворачиваем карточку, даже если
+    // пользователь успел её раскрыть.
+    if (!oldWidget.saturdayOff &&
+        widget.saturdayOff &&
+        widget.day == DateTime.saturday &&
+        _expanded) {
+      setState(() => _expanded = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
     final highlight = widget.isToday;
@@ -460,7 +482,7 @@ class _DayCardState extends State<_DayCard> {
             duration: const Duration(milliseconds: 260),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
-            child: _expanded
+            child: _expanded && !_dayOff
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[

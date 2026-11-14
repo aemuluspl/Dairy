@@ -12,6 +12,9 @@ class SettingsRepository {
   static const String _newIconLinesKey = 'newIconLines';
   static const String _holidaysKey = 'holidays';
   static const String _saturdayOffKey = 'saturdayOff';
+  static const String _latestVersionKey = 'latestVersion';
+  static const String _updateUrlKey = 'updateUrl';
+  static const String _lastUpdateCheckKey = 'lastUpdateCheck';
 
   late final Box<dynamic> _box;
 
@@ -66,4 +69,30 @@ class SettingsRepository {
         _holidaysKey,
         holidays.map((period) => period.toMap()).toList(growable: false),
       );
+
+  String? loadLatestVersion() {
+    final value = _box.get(_latestVersionKey);
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  String? loadUpdateUrl() {
+    final value = _box.get(_updateUrlKey);
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  DateTime? loadLastUpdateCheck() {
+    final value = _box.get(_lastUpdateCheckKey);
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
+  Future<void> saveUpdateCache({
+    required String latestVersion,
+    required String url,
+    required DateTime checkedAt,
+  }) async {
+    await _box.put(_latestVersionKey, latestVersion);
+    await _box.put(_updateUrlKey, url);
+    await _box.put(_lastUpdateCheckKey, checkedAt.toIso8601String());
+  }
 }

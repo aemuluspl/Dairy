@@ -5,6 +5,7 @@ import '../../core/i18n/app_strings.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/date_text.dart';
 import '../../core/utils/max_width_box.dart';
+import '../../data/models/bell.dart';
 import '../../data/models/lesson.dart';
 import '../../state/app_state.dart';
 import '../../widgets/soft_chip.dart';
@@ -22,17 +23,6 @@ class ScheduleEditScreen extends StatefulWidget {
 class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
   int _day = DateTime.monday;
 
-  static const List<({String start, String end})> _slots =
-      <({String start, String end})>[
-    (start: '08:00', end: '08:40'),
-    (start: '08:50', end: '09:30'),
-    (start: '09:45', end: '10:25'),
-    (start: '10:40', end: '11:20'),
-    (start: '11:35', end: '12:15'),
-    (start: '12:30', end: '13:10'),
-    (start: '13:25', end: '14:05'),
-  ];
-
   Future<void> _persist(List<Lesson> lessons) async {
     await context.read<AppState>().saveScheduleDay(_day, lessons);
   }
@@ -42,13 +32,16 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
     Lesson? lesson,
     int? index,
   }) async {
-    final strings = context.read<AppState>().strings;
+    final state = context.read<AppState>();
+    final strings = state.strings;
+    final bells = state.bellsFor(_day);
     final result = await showDialog<_LessonResult>(
       context: context,
       builder: (_) => _LessonDialog(
         strings: strings,
         initial: lesson,
-        fallback: _slots[(index ?? lessons.length) % _slots.length],
+        bells: bells,
+        fallback: bells[(index ?? lessons.length) % bells.length],
       ),
     );
     if (result == null) return;
@@ -68,6 +61,20 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
       next[index] = edited;
     }
     await _persist(next);
+  }
+
+  Future<void> _editBells() async {
+    final state = context.read<AppState>();
+    final strings = state.strings;
+    final result = await showDialog<List<Bell>>(
+      context: context,
+      builder: (_) => _BellsDialog(
+        strings: strings,
+        initial: state.bellsFor(_day),
+      ),
+    );
+    if (result == null) return;
+    await state.setDayBells(_day, result);
   }
 
   @override
@@ -117,6 +124,12 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
                       );
                     },
                   ),
+                ),
+                const SizedBox(height: 10),
+                _DayBellsCard(
+                  strings: strings,
+                  bells: state.bellsFor(_day),
+                  onTap: _editBells,
                 ),
                 const SizedBox(height: 10),
                 _DaysOffCard(state: state, strings: strings),
@@ -187,6 +200,234 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DayBellsCard extends StatelessWidget {
+  const _DayBellsCard({
+    required this.strings,
+    required this.bells,
+    required this.onTap,
+  });
+
+  final Strings strings;
+  final List<Bell> bells;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final summary = bells.isEmpty
+        ? strings.dayBellsEmpty
+        : '${bells.length} · ${bells.first.start}–${bells.last.end}';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: palette.border),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+            child: Row(
+              children: <Widget>[
+                Icon(
+                  Icons.notifications_active_rounded,
+                  size: 18,
+                  color: palette.textSecondary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        strings.dayBellsTitle,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: palette.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        summary,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: palette.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: onTap,
+                  child: Text(strings.dayBellsEdit),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BellDraft {
+  _BellDraft(this.start, this.end);
+
+  String start;
+  String end;
+}
+
+class _BellsDialog extends StatefulWidget {
+  const _BellsDialog({required this.strings, required this.initial});
+
+  final Strings strings;
+  final List<Bell> initial;
+
+  @override
+  State<_BellsDialog> createState() => _BellsDialogState();
+}
+
+class _BellsDialogState extends State<_BellsDialog> {
+  late final List<_BellDraft> _rows =
+      widget.initial.map((bell) => _BellDraft(bell.start, bell.end)).toList();
+
+  Future<void> _pick(_BellDraft row, {required bool start}) async {
+    final strings = context.read<AppState>().strings;
+    final picked = await showTimeWheelPicker(
+      context,
+      title: start ? strings.timeStartTitle : strings.timeEndTitle,
+      initial: start ? row.start : row.end,
+      strings: strings,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (start) {
+        row.start = picked;
+      } else {
+        row.end = picked;
+      }
+    });
+  }
+
+  String _shift(String value, int minutes) {
+    final time = parseClock(value);
+    return formatClock((
+      hour: (time.hour + (time.minute + minutes) ~/ 60) % 24,
+      minute: (time.minute + minutes) % 60,
+    ));
+  }
+
+  void _add() {
+    setState(() {
+      if (_rows.isEmpty) {
+        _rows.add(_BellDraft('08:00', '08:40'));
+      } else {
+        final last = _rows.last;
+        _rows.add(_BellDraft(_shift(last.end, 10), _shift(last.end, 50)));
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final strings = widget.strings;
+
+    return AlertDialog(
+      backgroundColor: palette.card,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      title: Text(
+        strings.dayBellsTitle,
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              for (var index = 0; index < _rows.length; index++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: <Widget>[
+                      SizedBox(
+                        width: 22,
+                        child: Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: palette.textMuted,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: _TimeField(
+                          value: _rows[index].start,
+                          label: strings.lessonStart,
+                          onTap: () => _pick(_rows[index], start: true),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _TimeField(
+                          value: _rows[index].end,
+                          label: strings.lessonEnd,
+                          onTap: () => _pick(_rows[index], start: false),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => setState(() => _rows.removeAt(index)),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: palette.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _add,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(strings.addBell),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => setState(_rows.clear),
+          child: Text(strings.resetBells),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(strings.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(
+            _rows
+                .map((row) => Bell(start: row.start, end: row.end))
+                .toList(growable: false),
+          ),
+          child: Text(strings.save),
+        ),
+      ],
     );
   }
 }
@@ -306,11 +547,13 @@ class _LessonDialog extends StatefulWidget {
     required this.strings,
     required this.initial,
     required this.fallback,
+    required this.bells,
   });
 
   final Strings strings;
   final Lesson? initial;
-  final ({String start, String end}) fallback;
+  final Bell fallback;
+  final List<Bell> bells;
 
   @override
   State<_LessonDialog> createState() => _LessonDialogState();
@@ -430,6 +673,40 @@ class _LessonDialogState extends State<_LessonDialog> {
                 ),
               ],
             ),
+            if (widget.bells.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  strings.lessonBellsLabel,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: palette.textMuted,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: <Widget>[
+                    for (final bell in widget.bells)
+                      SoftChip(
+                        label: '${bell.start}–${bell.end}',
+                        accent:
+                            bell.start == _startValue && bell.end == _endValue,
+                        onTap: () => setState(() {
+                          _startValue = bell.start;
+                          _endValue = bell.end;
+                        }),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

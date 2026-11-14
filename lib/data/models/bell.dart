@@ -17,3 +17,15 @@ class Bell {
     );
   }
 }
+
+/// Стандартная сетка звонков. Используется как запасная для дня,
+/// в котором ещё нет уроков и не настроены свои звонки.
+const List<Bell> defaultBellGrid = <Bell>[
+  Bell(start: '08:00', end: '08:40'),
+  Bell(start: '08:50', end: '09:30'),
+  Bell(start: '09:45', end: '10:25'),
+  Bell(start: '10:40', end: '11:20'),
+  Bell(start: '11:35', end: '12:15'),
+  Bell(start: '12:30', end: '13:10'),
+  Bell(start: '13:25', end: '14:05'),
+];

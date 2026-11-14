@@ -11,7 +11,6 @@ import 'package:school_diary/data/repositories/schedule_repository.dart';
 import 'package:school_diary/data/repositories/settings_repository.dart';
 import 'package:school_diary/data/repositories/task_repository.dart';
 import 'package:school_diary/features/schedule/schedule_screen.dart';
-import 'package:school_diary/features/settings/settings_screen.dart';
 import 'package:school_diary/features/tasks/task_card.dart';
 import 'package:school_diary/features/tasks/task_detail_screen.dart';
 import 'package:school_diary/state/app_state.dart';
@@ -154,17 +153,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Переключение темы — блок «Оформление» сверху.
+    // Тема живёт на вложенном экране «Оформление».
+    await tester.tap(find.text('Оформление'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Тёмная'));
     await tester.pumpAndSettle();
     expect(state.themeMode, ThemeMode.dark);
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
 
-    // Данные ниже — прокручиваем настройки.
-    final settingsList = find.descendant(
-      of: find.byType(SettingsScreen),
-      matching: find.byType(ListView),
-    );
-    await tester.drag(settingsList, const Offset(0, -500));
+    // Данные приложения — отдельный экран.
+    await tester.tap(find.text('Данные приложения'));
     await tester.pumpAndSettle();
     expect(find.text('Резервная копия'), findsOneWidget);
     expect(find.text('Журнал'), findsOneWidget);
@@ -198,17 +197,27 @@ void main() {
     await tester.pumpAndSettle();
 
     // Полный английский режим.
+    await tester.tap(find.text('Язык'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('English'));
     await tester.pumpAndSettle();
+    expect(find.text('Language'), findsOneWidget);
+    expect(find.text('Mixed'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
     expect(find.text('APPEARANCE'), findsOneWidget);
-    expect(find.text('Show room numbers'), findsOneWidget);
-    expect(find.text('LANGUAGE'), findsOneWidget);
+    expect(find.text('DATA'), findsOneWidget);
 
     // Смешанный режим: вкладки английские, содержимое русское.
+    await tester.tap(find.text('Language'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Mixed'));
     await tester.pumpAndSettle();
+    expect(find.text('ЯЗЫК'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
     expect(find.text('ОФОРМЛЕНИЕ'), findsOneWidget);
-    expect(find.text('Показывать кабинеты'), findsOneWidget);
+    expect(find.text('Данные приложения'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));

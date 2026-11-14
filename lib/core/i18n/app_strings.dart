@@ -160,6 +160,14 @@ class Strings {
   String get lessonRoom => _t('Кабинет', 'Room');
   String get lessonStart => _t('Начало', 'Start');
   String get lessonEnd => _t('Конец', 'End');
+  String get dayBellsTitle => _t('Звонки дня', 'Day bells');
+  String get dayBellsHint =>
+      _t('Своя сетка для каждого дня', 'A custom grid for each day');
+  String get dayBellsEdit => _t('Изменить', 'Edit');
+  String get dayBellsEmpty => _t('Как по умолчанию', 'Default grid');
+  String get addBell => _t('Добавить звонок', 'Add bell');
+  String get resetBells => _t('Сбросить', 'Reset');
+  String get lessonBellsLabel => _t('Звонки дня', 'Day bells');
   String get deleteLessonTitle => _t('Удалить урок?', 'Delete lesson?');
   String get holidaysTitle => _t('Каникулы и выходные', 'Days off');
   String get holidaysHint => _t(
@@ -187,7 +195,54 @@ class Strings {
   // Settings
   // ---------------------------------------------------------------------------
 
-  String get settingsTitle => _t('База и настройки', 'Settings');
+  String get settingsTitle => _t('Настройки', 'Settings');
+
+  // Главное меню настроек.
+  String get settingsAppearance => _t('Оформление', 'Appearance');
+  String get settingsAppearanceSubtitle =>
+      _t('Тема и иконка вкладки New', 'Theme and New tab icon');
+  String get settingsLanguage => _t('Язык', 'Language');
+  String get settingsLanguageSubtitle =>
+      _t('Русский, English или смешанный', 'Russian, English or mixed');
+  String get settingsSchedule => _t('Расписание', 'Schedule');
+  String get settingsScheduleSubtitle =>
+      _t('Кабинеты и суббота', 'Rooms and Saturday');
+  String get settingsAliases => _t('Алиасы предметов', 'Subject aliases');
+  String get settingsAliasesSubtitle =>
+      _t('Как сокращать названия в #тегах', 'Short names for #tags');
+  String get settingsData => _t('Данные приложения', 'App data');
+  String get settingsDataSubtitle =>
+      _t('Импорт, экспорт, копия и журнал', 'Import, export, backup and log');
+  String get settingsWidget => _t('Настройки виджета', 'Widget settings');
+  String get settingsWidgetSubtitle =>
+      _t('Вид домашнего экрана', 'Home screen look');
+  String get settingsUpdate => _t('Обновление', 'Update');
+  String settingsUpdateSubtitle(String version) =>
+      _t('Версия $version', 'Version $version');
+
+  // Обновления.
+  String get updateCurrentVersion => _t('Текущая версия', 'Current version');
+  String get updateChecking => _t('Проверяем…', 'Checking…');
+  String get updateCheck => _t('Проверить обновления', 'Check for updates');
+  String get updateUpToDate =>
+      _t('Установлена последняя версия', 'You’re on the latest version');
+  String get updateNotChecked =>
+      _t('Проверка ещё не выполнялась', 'Not checked yet');
+  String updateAvailableTitle(String version) =>
+      _t('Доступна версия $version', 'Version $version is available');
+  String get updateDownload => _t('Скачать обновление', 'Download update');
+  String get updateCheckFailed =>
+      _t('Не удалось проверить обновления', 'Couldn’t check for updates');
+  String get updateDownloadFailed =>
+      _t('Не удалось открыть ссылку', 'Couldn’t open the link');
+  String updateLastCheck(String at) => _t('Проверено: $at', 'Checked: $at');
+
+  // Виджет.
+  String get widgetStubTitle => _t('Скоро здесь', 'Coming soon');
+  String get widgetStubMessage => _t(
+        'Здесь появятся настройки темы и содержимого виджета.',
+        'Widget theme and content settings will appear here.',
+      );
   String get appearance => _t('ОФОРМЛЕНИЕ', 'APPEARANCE');
   String get themeLight => _t('Светлая', 'Light');
   String get themeDark => _t('Тёмная', 'Dark');
@@ -226,10 +281,19 @@ class Strings {
   // Импорт и экспорт расписания
   // ---------------------------------------------------------------------------
 
-  String get transferSection => _t('ИМПОРТ И ЭКСПОРТ', 'IMPORT & EXPORT');
-  String get transferJson => _t('Копировать JSON', 'Copy JSON');
-  String get transferText => _t('Копировать текстом', 'Copy as text');
-  String get transferImport => _t('Импортировать', 'Import');
+  String get transferSection => _t('РАСПИСАНИЕ', 'SCHEDULE');
+  String get transferJson =>
+      _t('Скопировать расписание (JSON)', 'Copy schedule (JSON)');
+  String get transferJsonHint =>
+      _t('Резервная копия всех уроков', 'A backup of all lessons');
+  String get transferText =>
+      _t('Скопировать расписание (текстом)', 'Copy schedule (as text)');
+  String get transferTextHint =>
+      _t('Человекочитаемый список уроков', 'A human-readable lesson list');
+  String get transferImport =>
+      _t('Импортировать расписание', 'Import schedule');
+  String get transferImportHintShort =>
+      _t('Вставить JSON или текст', 'Paste JSON or text');
   String get transferJsonCopied => _t('JSON скопирован', 'JSON copied');
   String get transferTextCopied => _t('Текст скопирован', 'Text copied');
   String get transferImportTitle => _t('Импорт расписания', 'Import schedule');
@@ -282,7 +346,7 @@ class Strings {
   String get clearLogQuestion =>
       _t('Удалить все записи журнала?', 'Delete all log entries?');
   String get back => _t('Назад', 'Back');
-  String get footerTitle => 'Hash · 1.1.0';
+  String footerTitle(String version) => 'Hash · $version';
 
   // ---------------------------------------------------------------------------
   // Склонения и даты

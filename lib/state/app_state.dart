@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/app_info.dart';
 import '../core/diagnostics/app_log.dart';
 import '../core/i18n/app_strings.dart';
 import '../data/models/bell.dart';
@@ -18,6 +19,7 @@ import '../domain/subject_aliases.dart';
 import '../domain/subject_resolver.dart';
 import '../services/home_widget_service.dart';
 import '../services/schedule_transfer_service.dart';
+import '../services/update_service.dart';
 
 class AppState extends ChangeNotifier {
   AppState({
@@ -34,6 +36,7 @@ class AppState extends ChangeNotifier {
 
   List<Task> _tasks = <Task>[];
   Map<int, List<Lesson>> _schedule = <int, List<Lesson>>{};
+  Map<int, List<Bell>> _dayBells = <int, List<Bell>>{};
 
   /// Ручные алиасы из настроек. Хранятся отдельно от расписания,
   /// чтобы генерация префиксов не затирала пользовательские правки.
@@ -45,6 +48,11 @@ class AppState extends ChangeNotifier {
   bool _newIconLines = false;
   bool _saturdayOff = false;
   List<HolidayPeriod> _holidays = <HolidayPeriod>[];
+  bool _updateAvailable = false;
+  bool _updateChecking = false;
+  String? _latestVersion;
+  String? _updateUrl;
+  DateTime? _lastUpdateCheck;
 
   late SubjectResolver _resolver;
   late HomeworkParser _parser;
@@ -72,6 +80,34 @@ class AppState extends ChangeNotifier {
   HomeworkParser get parser => _parser;
   List<Bell> get bells => ScheduleTransferService.deriveBells(_schedule);
 
+  /// Сетка звонков конкретного дня.
+  ///
+  /// Приоритет: ручная сетка → звонки из уроков этого дня → стандартная.
+  List<Bell> bellsFor(int weekday) {
+    final custom = _dayBells[weekday];
+    if (custom != null && custom.isNotEmpty) {
+      return List<Bell>.unmodifiable(custom);
+    }
+    final derived = ScheduleTransferService.deriveBells(
+      <int, List<Lesson>>{weekday: lessonsFor(weekday)},
+    );
+    if (derived.isNotEmpty) return derived;
+    return defaultBellGrid;
+  }
+
+  /// Эффективная сетка по дням 1–6 для экспорта и редактора.
+  Map<int, List<Bell>> get bellsByDay => <int, List<Bell>>{
+        for (var day = DateTime.monday; day <= DateTime.saturday; day++)
+          day: bellsFor(day),
+      };
+
+  String get version => AppInfo.version;
+  bool get updateAvailable => _updateAvailable;
+  bool get updateChecking => _updateChecking;
+  String? get latestVersion => _latestVersion;
+  String? get updateUrl => _updateUrl;
+  DateTime? get lastUpdateCheck => _lastUpdateCheck;
+
   /// Текущий учебный календарь: расписание + каникулы + режим субботы.
   SchoolCalendar get calendar => SchoolCalendar(
         schedule: _schedule,
@@ -95,6 +131,7 @@ class AppState extends ChangeNotifier {
     // Расписание и алиасы приходят только из данных пользователя.
     _schedule = scheduleRepository.loadSchedule();
     _customAliases = scheduleRepository.loadAliases();
+    _dayBells = scheduleRepository.loadBells();
 
     _themeMode = settingsRepository.loadThemeMode();
     _language = settingsRepository.loadLanguage();
@@ -102,6 +139,11 @@ class AppState extends ChangeNotifier {
     _newIconLines = settingsRepository.loadNewIconLines();
     _saturdayOff = settingsRepository.loadSaturdayOff();
     _holidays = settingsRepository.loadHolidays();
+    _latestVersion = settingsRepository.loadLatestVersion();
+    _updateUrl = settingsRepository.loadUpdateUrl();
+    _lastUpdateCheck = settingsRepository.loadLastUpdateCheck();
+    _updateAvailable = _latestVersion != null &&
+        UpdateService.isNewer(_latestVersion!, AppInfo.version);
     _rebuildResolver();
     _sortTasks();
     notifyListeners();
@@ -302,11 +344,69 @@ class AppState extends ChangeNotifier {
   List<Lesson> lessonsFor(int weekday) =>
       _schedule[weekday] ?? const <Lesson>[];
 
+  /// Сохраняет ручную сетку звонков дня. Пустой список возвращает
+  /// автоматическую сетку из уроков (или стандартную).
+  Future<void> setDayBells(int weekday, List<Bell> bells) async {
+    final cleaned = bells
+        .where((bell) => bell.start.isNotEmpty && bell.end.isNotEmpty)
+        .toList(growable: false)
+      ..sort((a, b) => a.start.compareTo(b.start));
+    _dayBells = <int, List<Bell>>{..._dayBells, weekday: cleaned};
+    notifyListeners();
+    await scheduleRepository.saveBells(_dayBells);
+    AppLog.instance.info('Звонки обновлены: день $weekday, ${cleaned.length}');
+  }
+
+  /// Проверка обновлений на GitHub Releases.
+  ///
+  /// Без [force] повторный запрос не чаще одного раза в сутки: результат
+  /// последней проверки уже лежит в `settings`.
+  Future<bool> checkForUpdates({bool force = false}) async {
+    if (_updateChecking) return _updateAvailable;
+
+    final last = _lastUpdateCheck;
+    if (!force &&
+        last != null &&
+        DateTime.now().difference(last) < const Duration(hours: 24)) {
+      return _updateAvailable;
+    }
+
+    _updateChecking = true;
+    notifyListeners();
+    try {
+      final release = await UpdateService.fetchLatest();
+      if (release == null) {
+        AppLog.instance.info('Проверка обновлений не удалась');
+        return _updateAvailable;
+      }
+      final checkedAt = DateTime.now();
+      final available = UpdateService.isNewer(release.version, AppInfo.version);
+      _latestVersion = release.version;
+      _updateUrl = release.url;
+      _lastUpdateCheck = checkedAt;
+      _updateAvailable = available;
+      await settingsRepository.saveUpdateCache(
+        latestVersion: release.version,
+        url: release.url,
+        checkedAt: checkedAt,
+      );
+      AppLog.instance.info(
+        available
+            ? 'Доступно обновление: ${release.tag}'
+            : 'Обновлений нет: ${release.tag}',
+      );
+      return available;
+    } finally {
+      _updateChecking = false;
+      notifyListeners();
+    }
+  }
+
   String exportScheduleJson() {
     return ScheduleTransferService.exportJson(
       schedule: _schedule,
       aliases: _customAliases,
-      bells: bells,
+      bellsByDay: bellsByDay,
     );
   }
 
@@ -324,10 +424,12 @@ class AppState extends ChangeNotifier {
 
     _schedule = parsed.schedule;
     _customAliases = parsed.aliases;
+    _dayBells = parsed.bellsByDay;
     _rebuildResolver();
     notifyListeners();
     await scheduleRepository.saveSchedule(_schedule);
     await scheduleRepository.saveAliases(_customAliases);
+    await scheduleRepository.saveBells(_dayBells);
     AppLog.instance.info(
       'Импортировано расписание: уроков '
       '${_schedule.values.fold<int>(0, (sum, day) => sum + day.length)}',

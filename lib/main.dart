@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
@@ -58,6 +59,10 @@ Future<void> main() async {
   );
   await appState.load();
   AppLog.instance.info('Загружено задач: ${appState.tasks.length}');
+
+  // Фоновая проверка обновлений: не блокирует старт, а в тестах
+  // AppState.load() вызывается напрямую и в сеть не ходит.
+  unawaited(appState.checkForUpdates());
 
   runApp(
     ChangeNotifierProvider<AppState>.value(

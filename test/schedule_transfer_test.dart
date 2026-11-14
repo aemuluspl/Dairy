@@ -22,17 +22,22 @@ void main() {
       aliases: <String, List<String>>{
         'Алгебра': <String>['матем'],
       },
-      bells: const <Bell>[
-        Bell(start: '08:00', end: '08:40'),
-        Bell(start: '08:50', end: '09:30'),
-        Bell(start: '09:45', end: '10:25'),
-      ],
+      bellsByDay: <int, List<Bell>>{
+        DateTime.monday: const <Bell>[
+          Bell(start: '08:00', end: '08:40'),
+          Bell(start: '08:50', end: '09:30'),
+        ],
+        DateTime.friday: const <Bell>[
+          Bell(start: '09:45', end: '10:25'),
+        ],
+      },
     );
 
     final decoded = jsonDecode(raw) as Map<String, dynamic>;
     expect(decoded['format'], 'hash.schedule');
-    expect(decoded['version'], 1);
+    expect(decoded['version'], 2);
     expect((decoded['schedule'] as Map<String, dynamic>).keys, contains('6'));
+    expect(decoded['bells'], isA<Map<String, dynamic>>());
 
     final parsed = ScheduleTransferService.tryParse(raw);
     expect(parsed, isNotNull);
@@ -42,6 +47,32 @@ void main() {
     expect(parsed.schedule[DateTime.friday]!.single.subject, 'Физика');
     expect(parsed.aliases['Алгебра'], <String>['матем']);
     expect(parsed.bells, hasLength(3));
+    expect(parsed.bellsByDay[DateTime.monday], hasLength(2));
+    expect(parsed.bellsByDay[DateTime.friday], hasLength(1));
+  });
+
+  test('сетка звонков по дням сохраняется в v2', () {
+    final raw = ScheduleTransferService.exportJson(
+      schedule: <int, List<Lesson>>{
+        DateTime.monday: const <Lesson>[
+          Lesson(subject: 'РОВ', start: '08:00', end: '08:40'),
+          Lesson(subject: 'Алгебра', start: '09:00', end: '09:40'),
+        ],
+      },
+      aliases: const <String, List<String>>{},
+      bellsByDay: <int, List<Bell>>{
+        DateTime.monday: const <Bell>[
+          Bell(start: '08:00', end: '08:40'),
+          Bell(start: '09:00', end: '09:40'),
+        ],
+      },
+    );
+
+    final parsed = ScheduleTransferService.tryParse(raw);
+    expect(parsed, isNotNull);
+    expect(parsed!.bellsByDay[DateTime.monday], hasLength(2));
+    expect(parsed.bellsByDay[DateTime.monday]!.last.start, '09:00');
+    expect(parsed.bellsByDay[DateTime.tuesday], isNull);
   });
 
   test('старый формат 1.0.x с modules.homework импортируется', () {
