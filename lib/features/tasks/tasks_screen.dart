@@ -9,6 +9,7 @@ import '../../state/app_state.dart';
 import '../../widgets/animated_count.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/pill_nav_bar.dart';
 import '../../widgets/top_bar.dart';
 import 'deadline_picker.dart';
 import 'task_card.dart';
@@ -177,7 +178,10 @@ class _TasksScreenState extends State<TasksScreen> {
                       )
                     : ListView(
                         physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.only(top: 2, bottom: 16),
+                        padding: const EdgeInsets.only(
+                          top: 2,
+                          bottom: PillNavBar.contentInset,
+                        ),
                         children: <Widget>[
                           Container(
                             padding: const EdgeInsets.all(16),
@@ -227,11 +231,9 @@ class _TasksScreenState extends State<TasksScreen> {
                                           ),
                                           const SizedBox(height: 3),
                                           Text(
-                                            completed.isEmpty
-                                                ? strings.swipeHint
-                                                : strings.completedCount(
-                                                    completed.length,
-                                                  ),
+                                            strings.completedCount(
+                                              completed.length,
+                                            ),
                                             style: TextStyle(
                                               fontSize: 11.5,
                                               height: 1.35,

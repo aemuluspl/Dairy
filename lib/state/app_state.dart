@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/diagnostics/app_log.dart';
 import '../core/i18n/app_strings.dart';
+import '../data/models/bell.dart';
 import '../data/models/holiday.dart';
 import '../data/models/lesson.dart';
 import '../data/models/task.dart';
@@ -11,12 +12,12 @@ import '../data/repositories/backup_repository.dart';
 import '../data/repositories/schedule_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/repositories/task_repository.dart';
-import '../data/seed/default_aliases.dart';
-import '../data/seed/default_schedule.dart';
 import '../domain/homework_parser.dart';
 import '../domain/school_calendar.dart';
+import '../domain/subject_aliases.dart';
 import '../domain/subject_resolver.dart';
-import '../services/export_service.dart';
+import '../services/home_widget_service.dart';
+import '../services/schedule_transfer_service.dart';
 
 class AppState extends ChangeNotifier {
   AppState({
@@ -33,6 +34,10 @@ class AppState extends ChangeNotifier {
 
   List<Task> _tasks = <Task>[];
   Map<int, List<Lesson>> _schedule = <int, List<Lesson>>{};
+
+  /// Ручные алиасы из настроек. Хранятся отдельно от расписания,
+  /// чтобы генерация префиксов не затирала пользовательские правки.
+  Map<String, List<String>> _customAliases = <String, List<String>>{};
   Map<String, List<String>> _aliases = <String, List<String>>{};
   ThemeMode _themeMode = ThemeMode.system;
   AppLanguage _language = AppLanguage.mixed;
@@ -49,7 +54,12 @@ class AppState extends ChangeNotifier {
   int get backupCount => backupRepository.latestCount;
   bool get hasBackup => backupRepository.hasBackup;
   Map<int, List<Lesson>> get schedule => _schedule;
+
+  /// Полный словарь: сгенерированные из расписания + ручные алиасы.
   Map<String, List<String>> get aliases => _aliases;
+
+  /// Только ручные алиасы — то, что сохраняется и экспортируется.
+  Map<String, List<String>> get customAliases => _customAliases;
   ThemeMode get themeMode => _themeMode;
   AppLanguage get language => _language;
   bool get showRooms => _showRooms;
@@ -60,6 +70,7 @@ class AppState extends ChangeNotifier {
   Strings get strings => Strings(_language);
   SubjectResolver get resolver => _resolver;
   HomeworkParser get parser => _parser;
+  List<Bell> get bells => ScheduleTransferService.deriveBells(_schedule);
 
   /// Текущий учебный календарь: расписание + каникулы + режим субботы.
   SchoolCalendar get calendar => SchoolCalendar(
@@ -75,31 +86,15 @@ class AppState extends ChangeNotifier {
 
   int get activeCount => _tasks.where((task) => !task.isCompleted).length;
   int get completedCount => _tasks.where((task) => task.isCompleted).length;
-  int get subjectCount => _aliases.length;
+  int get subjectCount => _resolver.subjects.length;
 
   Future<void> load() async {
     _tasks = taskRepository.loadAll();
 
-    _aliases = scheduleRepository.loadAliases();
-    if (_aliases.isEmpty) {
-      _aliases = <String, List<String>>{
-        for (final entry in defaultSubjectAliases.entries)
-          entry.key: List<String>.from(entry.value),
-      };
-      await scheduleRepository.saveAliases(_aliases);
-    }
-
+    // Чистый старт: никаких предзаполненных уроков и предметов.
+    // Расписание и алиасы приходят только из данных пользователя.
     _schedule = scheduleRepository.loadSchedule();
-    final seedOutdated =
-        scheduleRepository.loadSeedVersion() < ScheduleRepository.seedVersion;
-    if (seedOutdated ||
-        !_schedule.values.any((lessons) => lessons.isNotEmpty)) {
-      _schedule = <int, List<Lesson>>{
-        for (final entry in defaultSchedule.entries)
-          entry.key: List<Lesson>.from(entry.value),
-      };
-      await scheduleRepository.saveSchedule(_schedule);
-    }
+    _customAliases = scheduleRepository.loadAliases();
 
     _themeMode = settingsRepository.loadThemeMode();
     _language = settingsRepository.loadLanguage();
@@ -107,14 +102,35 @@ class AppState extends ChangeNotifier {
     _newIconLines = settingsRepository.loadNewIconLines();
     _saturdayOff = settingsRepository.loadSaturdayOff();
     _holidays = settingsRepository.loadHolidays();
-    _resolver = SubjectResolver(_aliases);
-    _parser = HomeworkParser(resolver: _resolver);
+    _rebuildResolver();
     _sortTasks();
     notifyListeners();
+    unawaited(_syncWidget());
 
     if (!backupRepository.hasBackup && _tasks.isNotEmpty) {
       unawaited(_saveBackup());
     }
+  }
+
+  /// Пересобирает словарь предметов из расписания и ручных алиасов.
+  void _rebuildResolver() {
+    final custom = <String, List<String>>{};
+    final subjects = <String>{};
+    for (final lessons in _schedule.values) {
+      for (final lesson in lessons) {
+        final subject = lesson.subject.trim();
+        if (subject.isNotEmpty) subjects.add(subject);
+      }
+    }
+    for (final entry in _customAliases.entries) {
+      if (subjects.contains(entry.key)) {
+        custom[entry.key] = List<String>.from(entry.value);
+      }
+    }
+    _customAliases = custom;
+    _aliases = SubjectAliases.build(subjects: subjects, custom: custom);
+    _resolver = SubjectResolver(_aliases);
+    _parser = HomeworkParser(resolver: _resolver);
   }
 
   Future<int> distribute(String rawText) async {
@@ -185,6 +201,7 @@ class AppState extends ChangeNotifier {
     _themeMode = mode;
     notifyListeners();
     await settingsRepository.saveThemeMode(mode);
+    unawaited(_syncWidget());
   }
 
   Future<void> setLanguage(AppLanguage language) async {
@@ -192,6 +209,7 @@ class AppState extends ChangeNotifier {
     _language = language;
     notifyListeners();
     await settingsRepository.saveLanguage(language);
+    unawaited(_syncWidget());
   }
 
   Future<void> setShowRooms(bool value) async {
@@ -199,6 +217,7 @@ class AppState extends ChangeNotifier {
     _showRooms = value;
     notifyListeners();
     await settingsRepository.saveShowRooms(value);
+    unawaited(_syncWidget());
   }
 
   Future<void> setNewIconLines(bool value) async {
@@ -216,6 +235,7 @@ class AppState extends ChangeNotifier {
     AppLog.instance.info(
       value ? 'Суббота отмечена выходным' : 'Суббота снова учебный день',
     );
+    unawaited(_syncWidget());
   }
 
   Future<void> addHoliday(DateTime start, DateTime end) async {
@@ -244,22 +264,77 @@ class AppState extends ChangeNotifier {
 
   Future<void> saveScheduleDay(int weekday, List<Lesson> lessons) async {
     _schedule = <int, List<Lesson>>{..._schedule, weekday: lessons};
+    _rebuildResolver();
     notifyListeners();
     await scheduleRepository.saveSchedule(_schedule);
+    await scheduleRepository.saveAliases(_customAliases);
     AppLog.instance.info(
       'Расписание сохранено: день $weekday, уроков ${lessons.length}',
     );
+    unawaited(_syncWidget());
+  }
+
+  /// Ручной набор алиасов для предмета. Пустой список — явный «без алиасов».
+  Future<void> setSubjectAliases(
+    String subject,
+    List<String> aliases,
+  ) async {
+    final cleaned = <String>[];
+    for (final alias in aliases) {
+      final value = alias.trim();
+      if (value.isEmpty) continue;
+      if (cleaned.any((item) => item.toLowerCase() == value.toLowerCase())) {
+        continue;
+      }
+      cleaned.add(value);
+    }
+
+    _customAliases = <String, List<String>>{
+      ..._customAliases,
+      subject: cleaned,
+    };
+    _rebuildResolver();
+    notifyListeners();
+    await scheduleRepository.saveAliases(_customAliases);
+    AppLog.instance.info('Алиасы обновлены: $subject');
   }
 
   List<Lesson> lessonsFor(int weekday) =>
       _schedule[weekday] ?? const <Lesson>[];
 
-  String exportJson() {
-    return ExportService.buildJson(
-      tasks: _tasks,
+  String exportScheduleJson() {
+    return ScheduleTransferService.exportJson(
       schedule: _schedule,
-      aliases: _aliases,
+      aliases: _customAliases,
+      bells: bells,
     );
+  }
+
+  String exportScheduleText() {
+    return ScheduleTransferService.exportText(
+      schedule: _schedule,
+      bells: bells,
+    );
+  }
+
+  /// Импорт расписания из JSON или текста. Возвращает число уроков.
+  Future<int> importSchedule(String raw) async {
+    final parsed = ScheduleTransferService.tryParse(raw);
+    if (parsed == null) return -1;
+
+    _schedule = parsed.schedule;
+    _customAliases = parsed.aliases;
+    _rebuildResolver();
+    notifyListeners();
+    await scheduleRepository.saveSchedule(_schedule);
+    await scheduleRepository.saveAliases(_customAliases);
+    AppLog.instance.info(
+      'Импортировано расписание: уроков '
+      '${_schedule.values.fold<int>(0, (sum, day) => sum + day.length)}',
+    );
+    unawaited(_syncWidget());
+
+    return _schedule.values.fold<int>(0, (sum, day) => sum + day.length);
   }
 
   /// Возвращает задачи из последней резервной копии.
@@ -290,6 +365,20 @@ class AppState extends ChangeNotifier {
         stack: stack,
       );
     }
+  }
+
+  Future<void> _syncWidget() async {
+    final brightness =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    final dark = _themeMode == ThemeMode.dark ||
+        (_themeMode == ThemeMode.system && brightness == Brightness.dark);
+    await HomeWidgetService.sync(
+      schedule: _schedule,
+      showRooms: _showRooms,
+      saturdayOff: _saturdayOff,
+      dark: dark,
+      english: _language == AppLanguage.english,
+    );
   }
 
   Future<void> _replaceTask(Task task) async {

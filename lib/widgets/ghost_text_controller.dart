@@ -6,7 +6,8 @@ import '../domain/subject_resolver.dart';
 /// Контроллер с «призрачным» продолжением слова.
 ///
 /// Введённый текст рисуется обычным цветом, а [ghost] — приглушённым.
-/// Курсор при этом остаётся сразу после реального текста.
+/// Призрачный хвост вставляется строго в позицию курсора, а не в конец
+/// всего текста, поэтому подсказка работает и в середине строки.
 class GhostTextController extends TextEditingController {
   GhostTextController({super.text});
 
@@ -40,11 +41,15 @@ class GhostTextController extends TextEditingController {
       );
     }
 
-    final spans = <InlineSpan>[];
-    if (text.isNotEmpty) {
-      spans.add(TextSpan(text: text));
-    }
-    spans.add(
+    final selection = value.selection;
+    final rawOffset = selection.isValid ? selection.baseOffset : text.length;
+    final cursor =
+        rawOffset < 0 ? 0 : (rawOffset > text.length ? text.length : rawOffset);
+    final before = text.substring(0, cursor);
+    final after = text.substring(cursor);
+
+    final spans = <InlineSpan>[
+      if (before.isNotEmpty) TextSpan(text: before),
       TextSpan(
         text: _ghost,
         style: baseStyle.copyWith(
@@ -52,15 +57,17 @@ class GhostTextController extends TextEditingController {
           fontWeight: FontWeight.w500,
         ),
       ),
-    );
+      if (after.isNotEmpty) TextSpan(text: after),
+    ];
     return TextSpan(style: baseStyle, children: spans);
   }
 }
 
 /// Превращает слово в хэштег, когда пользователь ставит пробел.
 ///
-/// Срабатывает только если слово — известный предмет или имеет
-/// inline-дополнение. Обычный текст остаётся обычным текстом.
+/// Слово определяется по позиции курсора, поэтому замена работает и в
+/// середине строки. Срабатывает только если слово — известный предмет или
+/// имеет inline-дополнение; обычный текст остаётся обычным текстом.
 class HashtagAutocompleteFormatter extends TextInputFormatter {
   HashtagAutocompleteFormatter({required this.resolver});
 
@@ -73,14 +80,16 @@ class HashtagAutocompleteFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    // Реагируем только на одиночный пробел в самом конце.
-    if (newValue.text.length != oldValue.text.length + 1) return newValue;
-    if (!newValue.text.endsWith(' ')) return newValue;
     if (!newValue.selection.isCollapsed) return newValue;
-    if (newValue.selection.baseOffset != newValue.text.length) return newValue;
 
-    final withoutSpace = newValue.text.substring(0, newValue.text.length - 1);
-    final match = _wordPattern.firstMatch(withoutSpace);
+    final text = newValue.text;
+    final cursor = newValue.selection.baseOffset;
+    if (cursor <= 0 || cursor > text.length) return newValue;
+    // Пробел только что появился прямо перед курсором.
+    if (text[cursor - 1] != ' ') return newValue;
+
+    final before = text.substring(0, cursor - 1);
+    final match = _wordPattern.firstMatch(before);
     if (match == null) return newValue;
 
     final word = match.group(0) ?? '';
@@ -95,11 +104,14 @@ class HashtagAutocompleteFormatter extends TextInputFormatter {
     if (fullWord == null) return newValue;
 
     final replacement = '#${resolver.tagFor(fullWord)} ';
-    final updated = '${newValue.text.substring(0, match.start)}$replacement';
+    final updated = '${text.substring(0, match.start)}$replacement'
+        '${text.substring(cursor)}';
 
     return TextEditingValue(
       text: updated,
-      selection: TextSelection.collapsed(offset: updated.length),
+      selection: TextSelection.collapsed(
+        offset: match.start + replacement.length,
+      ),
     );
   }
 }

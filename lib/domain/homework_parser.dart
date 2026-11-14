@@ -245,7 +245,12 @@ class HomeworkParser {
     );
   }
 
-  /// Дедлайн по расписанию: ближайший урок предмета (со сдвигом «через урок»).
+  /// Дедлайн по расписанию: первый подходящий урок предмета за 28 дней.
+  ///
+  /// Старт — завтра (`today + 1`), а не сегодня: домашка, заданная в пятницу
+  /// на предмет, который стоит в понедельник, не должна «сгорать» вечером
+  /// пятницы. Цикл переходит через границы недель и месяцев, пропускает
+  /// каникулы, воскресенье и выключенную субботу.
   ({DateTime deadline, DateTime due})? _subjectDeadline({
     required String subject,
     required DateTime today,
@@ -255,18 +260,34 @@ class HomeworkParser {
   }) {
     if (calendar == null || subject == 'Разное') return null;
 
-    final dates = calendar.upcomingSubjectDates(subject, from: today);
-    if (dates.isEmpty) return null;
+    final start = SchoolCalendar.dateOnly(today).add(const Duration(days: 1));
+    var matched = 0;
 
-    var index = shift;
-    while (index < dates.length) {
-      final due = dates[index];
-      final candidate = _eveningBefore(due, today);
-      if (!candidate.isBefore(now)) {
-        return (deadline: candidate, due: due);
+    for (var index = 0; index < 28; index++) {
+      final candidate = start.add(Duration(days: index));
+
+      // Каникулы, воскресенье и (при необходимости) суббота.
+      if (!calendar.isSchoolDay(candidate)) continue;
+      if (!calendar.hasLessonFor(subject, candidate.weekday)) continue;
+
+      if (matched < shift) {
+        matched++;
+        continue;
       }
-      index++;
+
+      // Дедлайн — 20:00 накануне дня урока.
+      final deadline = DateTime(
+        candidate.year,
+        candidate.month,
+        candidate.day - 1,
+        defaultHour,
+      );
+      // Время уже прошло — ищем следующий подходящий урок.
+      if (!deadline.isAfter(now)) continue;
+
+      return (deadline: deadline, due: SchoolCalendar.dateOnly(candidate));
     }
+
     return null;
   }
 

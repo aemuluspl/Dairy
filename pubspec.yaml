@@ -1,7 +1,7 @@
 name: school_diary
 description: "Hash — школьный дневник и домашние задания."
 publish_to: "none"
-version: 1.0.3+4
+version: 1.1.0+5
 
 environment:
   sdk: ">=3.6.0 <4.0.0"
@@ -16,6 +16,7 @@ dependencies:
   provider: ^6.1.2
   cupertino_icons: ^1.0.8
   uuid: ^4.5.1
+  home_widget: ^0.10.0
 
 dev_dependencies:
   flutter_test:

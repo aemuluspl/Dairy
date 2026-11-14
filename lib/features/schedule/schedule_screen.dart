@@ -11,6 +11,7 @@ import '../../core/utils/max_width_box.dart';
 import '../../data/models/lesson.dart';
 import '../../state/app_state.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/pill_nav_bar.dart';
 import '../../widgets/soft_chip.dart';
 import '../../widgets/top_bar.dart';
 import 'schedule_edit_screen.dart';
@@ -37,19 +38,31 @@ class ScheduleScreen extends StatelessWidget {
     final state = context.watch<AppState>();
     final strings = state.strings;
     final now = DateTime.now();
-    final marks = resolveDayMarks(now, state.schedule);
-    final live = resolveLiveStatus(now, state.schedule);
+    final marks = resolveDayMarks(
+      now,
+      state.schedule,
+      saturdayOff: state.saturdayOff,
+    );
+    final live = resolveLiveStatus(
+      now,
+      state.schedule,
+      saturdayOff: state.saturdayOff,
+    );
     // Даты текущей недели: понедельник + смещение дня.
     final weekStart =
         DateTime(now.year, now.month, now.day - (now.weekday - 1));
-    final totalLessons = <int>[
+    final days = <int>[
       DateTime.monday,
       DateTime.tuesday,
       DateTime.wednesday,
       DateTime.thursday,
       DateTime.friday,
       DateTime.saturday,
-    ].fold<int>(0, (sum, day) => sum + state.lessonsFor(day).length);
+    ].where((day) => !(day == DateTime.saturday && state.saturdayOff));
+    final totalLessons = days.fold<int>(
+      0,
+      (sum, day) => sum + state.lessonsFor(day).length,
+    );
 
     return SafeArea(
       bottom: false,
@@ -98,7 +111,10 @@ class ScheduleScreen extends StatelessWidget {
                 Expanded(
                   child: ListView(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.only(top: 2, bottom: 20),
+                    padding: const EdgeInsets.only(
+                      top: 2,
+                      bottom: PillNavBar.contentInset,
+                    ),
                     children: <Widget>[
                       Wrap(
                         spacing: 6,
@@ -108,11 +124,7 @@ class ScheduleScreen extends StatelessWidget {
                             label: strings.lessonsCount(totalLessons),
                             icon: Icons.schedule_rounded,
                           ),
-                          SoftChip(
-                            label: _liveLabel(live, strings),
-                            icon: _liveIcon(live),
-                            accent: true,
-                          ),
+                          ..._liveChips(live, strings),
                           if (state.calendar.isHoliday(now))
                             SoftChip(
                               label: strings.holidaysNow,
@@ -133,6 +145,7 @@ class ScheduleScreen extends StatelessWidget {
                             isToday: day == marks.today,
                             isTomorrow: day == marks.tomorrow,
                             showRooms: state.showRooms,
+                            saturdayOff: state.saturdayOff,
                             strings: strings,
                             initiallyExpanded: day ==
                                 (marks.today ??
@@ -192,41 +205,77 @@ class _WeekTickerState extends State<_WeekTicker> {
   Widget build(BuildContext context) => widget.builder(context);
 }
 
-String _liveLabel(LiveStatus status, Strings strings) {
+List<Widget> _liveChips(LiveStatus status, Strings strings) {
   switch (status.kind) {
-    case LiveStatusKind.beforeSchool:
-      return strings.statusFirstLesson(status.time ?? '');
     case LiveStatusKind.inLesson:
-      return strings.statusInLesson(
-        status.lesson?.subject ?? '',
-        status.lesson?.start ?? '',
-      );
-    case LiveStatusKind.onBreak:
-      return strings.statusBreak(status.time ?? '');
-    case LiveStatusKind.tomorrow:
-      return strings.statusTomorrow(status.lessonCount ?? 0);
-    case LiveStatusKind.nextDay:
-      return strings.statusNextDay(
-        capitalizeFirst(
-          weekdayFull(status.day ?? DateTime.monday,
-              english: strings.isEnglish),
+      final lesson = status.lesson;
+      final next = status.nextLesson;
+      if (lesson == null) return const <Widget>[];
+      return <Widget>[
+        SoftChip(
+          label: strings.statusInLesson(
+            lesson.subject,
+            lesson.start,
+            lesson.end,
+          ),
+          icon: Icons.play_circle_fill_rounded,
+          accent: true,
         ),
-      );
-  }
-}
-
-IconData _liveIcon(LiveStatus status) {
-  switch (status.kind) {
-    case LiveStatusKind.beforeSchool:
-      return Icons.backpack_rounded;
-    case LiveStatusKind.inLesson:
-      return Icons.play_circle_fill_rounded;
+        if (next != null)
+          SoftChip(
+            label: strings.statusNextLesson(
+              next.subject,
+              next.start,
+              next.end,
+            ),
+            icon: Icons.skip_next_rounded,
+          ),
+      ];
     case LiveStatusKind.onBreak:
-      return Icons.free_breakfast_rounded;
+      final next = status.nextLesson;
+      return <Widget>[
+        SoftChip(
+          label: next == null
+              ? strings.statusBreak(status.time ?? '')
+              : strings.statusBreakNext(
+                  status.time ?? next.start,
+                  next.subject,
+                ),
+          icon: Icons.free_breakfast_rounded,
+          accent: true,
+        ),
+      ];
+    case LiveStatusKind.beforeSchool:
+      return <Widget>[
+        SoftChip(
+          label: strings.statusFirstLesson(status.time ?? ''),
+          icon: Icons.backpack_rounded,
+          accent: true,
+        ),
+      ];
     case LiveStatusKind.tomorrow:
-      return Icons.event_rounded;
+      return <Widget>[
+        SoftChip(
+          label: strings.statusTomorrow(status.lessonCount ?? 0),
+          icon: Icons.event_rounded,
+          accent: true,
+        ),
+      ];
     case LiveStatusKind.nextDay:
-      return Icons.fast_forward_rounded;
+      return <Widget>[
+        SoftChip(
+          label: strings.statusNextDay(
+            capitalizeFirst(
+              weekdayFull(
+                status.day ?? DateTime.monday,
+                english: strings.isEnglish,
+              ),
+            ),
+          ),
+          icon: Icons.fast_forward_rounded,
+          accent: true,
+        ),
+      ];
   }
 }
 
@@ -239,6 +288,7 @@ class _DayCard extends StatefulWidget {
     required this.isTomorrow,
     required this.initiallyExpanded,
     required this.showRooms,
+    required this.saturdayOff,
     required this.strings,
   });
 
@@ -249,6 +299,7 @@ class _DayCard extends StatefulWidget {
   final bool isTomorrow;
   final bool initiallyExpanded;
   final bool showRooms;
+  final bool saturdayOff;
   final Strings strings;
 
   @override
@@ -256,10 +307,13 @@ class _DayCard extends StatefulWidget {
 }
 
 class _DayCardState extends State<_DayCard> {
-  late bool _expanded =
-      widget.initiallyExpanded && widget.day != DateTime.sunday;
+  late bool _expanded = widget.initiallyExpanded && !_isConfiguredDayOff;
 
-  bool get _dayOff => widget.day == DateTime.sunday;
+  bool get _isConfiguredDayOff =>
+      widget.day == DateTime.sunday ||
+      (widget.saturdayOff && widget.day == DateTime.saturday);
+
+  bool get _dayOff => _isConfiguredDayOff;
 
   @override
   Widget build(BuildContext context) {

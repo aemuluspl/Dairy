@@ -17,7 +17,15 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  late int _currentIndex = _tabFromUrl();
+  static const int _pageCount = 4;
+  static const int _basePage = 4000;
+
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  /// Пока идёт программная анимация по тапу, события контроллера
+  /// игнорируются — иначе капсула «металась» бы по промежуточным страницам.
+  bool _isAnimatingByTap = false;
 
   static const List<Widget> _pages = <Widget>[
     InboxScreen(),
@@ -25,6 +33,19 @@ class _HomeShellState extends State<HomeShell> {
     ScheduleScreen(),
     SettingsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = _tabFromUrl();
+    _pageController = PageController(initialPage: _basePage + _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   /// Небольшой бонус для веба: `?tab=schedule` открывает нужную вкладку.
   /// Полезно для превью и отладки, на Android просто всегда New.
@@ -42,12 +63,39 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
-  void _select(int index) {
-    if (index == _currentIndex) return;
+  Future<void> _select(int index) async {
+    if (index == _currentIndex || _isAnimatingByTap) return;
     FocusManager.instance.primaryFocus?.unfocus();
 
-    // IndexedStack переключает вкладки мгновенно: промежуточные экраны
-    // не пролистываются, состояние каждой страницы сохраняется.
+    final currentPage = _pageController.hasClients
+        ? (_pageController.page ?? (_basePage + _currentIndex).toDouble())
+            .round()
+        : _basePage + _currentIndex;
+
+    var delta = index - _currentIndex;
+    if (delta > _pageCount ~/ 2) delta -= _pageCount;
+    if (delta < -(_pageCount ~/ 2)) delta += _pageCount;
+
+    setState(() {
+      _isAnimatingByTap = true;
+      _currentIndex = index;
+    });
+
+    try {
+      await _pageController.animateToPage(
+        currentPage + delta,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    } finally {
+      if (mounted) _isAnimatingByTap = false;
+    }
+  }
+
+  void _handlePageChanged(int page) {
+    if (_isAnimatingByTap) return;
+    final index = page % _pageCount;
+    if (index == _currentIndex) return;
     setState(() => _currentIndex = index);
   }
 
@@ -57,10 +105,17 @@ class _HomeShellState extends State<HomeShell> {
     final state = context.watch<AppState>();
 
     return Scaffold(
+      // Контент уходит под капсулу навигации: под скруглениями нет
+      // непрозрачной полосы, список виден насквозь.
+      extendBody: true,
       resizeToAvoidBottomInset: true,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
+      body: PageView.builder(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        onPageChanged: _handlePageChanged,
+        itemBuilder: (context, page) {
+          return _KeepAlivePage(child: _pages[page % _pageCount]);
+        },
       ),
       // Высоту нижней панели анимируем вместе с клавиатурой, чтобы при её
       // скрытии «Распределить» и контент не прыгали вниз одним кадром.
@@ -77,5 +132,27 @@ class _HomeShellState extends State<HomeShell> {
               ),
       ),
     );
+  }
+}
+
+/// Сохраняет состояние вкладки при перелистывании PageView.
+class _KeepAlivePage extends StatefulWidget {
+  const _KeepAlivePage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

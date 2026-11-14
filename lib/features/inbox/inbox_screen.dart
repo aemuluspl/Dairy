@@ -7,6 +7,7 @@ import '../../core/utils/max_width_box.dart';
 import '../../state/app_state.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../widgets/ghost_text_controller.dart';
+import '../../widgets/pill_nav_bar.dart';
 import '../../widgets/soft_chip.dart';
 import '../../widgets/top_bar.dart';
 
@@ -70,6 +71,8 @@ class _InboxScreenState extends State<InboxScreen>
   }
 
   /// Слово под курсором без решётки, если курсор стоит сразу после него.
+  /// Если справа от курсора ещё продолжается то же слово, подсказка не нужна:
+  /// иначе ghost продублировал бы уже введённый хвост.
   String _activePrefix() {
     final selection = _controller.selection;
     if (!selection.isValid || !selection.isCollapsed) return '';
@@ -79,6 +82,9 @@ class _InboxScreenState extends State<InboxScreen>
     final offset = rawOffset < 0
         ? text.length
         : (rawOffset > text.length ? text.length : rawOffset);
+    final after = text.substring(offset);
+    if (RegExp(r'^[A-Za-zА-Яа-яЁё0-9_]').hasMatch(after)) return '';
+
     final before = text.substring(0, offset);
     final match = RegExp(r'#?[A-Za-zА-Яа-яЁё0-9_]+$').firstMatch(before);
     if (match == null) return '';
@@ -197,7 +203,12 @@ class _InboxScreenState extends State<InboxScreen>
       bottom: false,
       child: MaxWidthBox(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            10,
+            16,
+            keyboardOpen ? 10 : PillNavBar.contentInset,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
@@ -281,37 +292,29 @@ class _InboxScreenState extends State<InboxScreen>
                           ),
                         ),
                         const SizedBox(height: 12),
-                        SizedBox(
-                          height: 36,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(),
-                            itemCount: state.resolver.subjects.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 6),
-                            itemBuilder: (context, index) {
-                              final subject = state.resolver.subjects[index];
-                              return SoftChip(
-                                label: subject,
-                                onTap: () => _insertSubject(
-                                  subject,
-                                  replaceActiveWord: false,
-                                ),
-                              );
-                            },
+                        if (state.resolver.subjects.isNotEmpty) ...<Widget>[
+                          SizedBox(
+                            height: 36,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: state.resolver.subjects.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 6),
+                              itemBuilder: (context, index) {
+                                final subject = state.resolver.subjects[index];
+                                return SoftChip(
+                                  label: subject,
+                                  onTap: () => _insertSubject(
+                                    subject,
+                                    replaceActiveWord: false,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          strings.hashtagHint,
-                          style: TextStyle(
-                            fontSize: 10,
-                            height: 1.3,
-                            fontWeight: FontWeight.w600,
-                            color: palette.textMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
+                          const SizedBox(height: 10),
+                        ],
                         AnimatedBuilder(
                           animation: _glow,
                           builder: (context, child) {

@@ -121,15 +121,6 @@ class _ScheduleEditScreenState extends State<ScheduleEditScreen> {
                 const SizedBox(height: 10),
                 _DaysOffCard(state: state, strings: strings),
                 const SizedBox(height: 10),
-                Text(
-                  strings.reorderHint,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: palette.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 4),
                 Expanded(
                   child: ReorderableListView.builder(
                     physics: const BouncingScrollPhysics(),

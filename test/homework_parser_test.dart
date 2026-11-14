@@ -378,6 +378,72 @@ void main() {
       expect(result.single.due, DateTime(2025, 11, 18));
       expect(result.single.deadline, DateTime(2025, 11, 17, 20));
     });
+
+    test('цикл ищет урок через каникулы и границу месяца', () {
+      final calendar = calendarWith(
+        <int, List<Lesson>>{
+          DateTime.monday: <Lesson>[lesson('История')],
+        },
+        holidays: <HolidayPeriod>[
+          HolidayPeriod(
+            start: DateTime(2025, 11, 17),
+            end: DateTime(2025, 12, 5),
+          ),
+        ],
+      );
+
+      final result = parser.parse(
+        '#история глава 5',
+        now: thursday,
+        calendar: calendar,
+      );
+
+      // 17 и 24 ноября, 1 декабря — каникулы; ближайший урок 8 декабря.
+      expect(result.single.usedSchedule, isTrue);
+      expect(result.single.due, DateTime(2025, 12, 8));
+      expect(result.single.deadline, DateTime(2025, 12, 7, 20));
+    });
+
+    test('каникулы длиннее 28 дней — запасной дедлайн', () {
+      final calendar = calendarWith(
+        <int, List<Lesson>>{
+          DateTime.monday: <Lesson>[lesson('История')],
+        },
+        holidays: <HolidayPeriod>[
+          HolidayPeriod(
+            start: DateTime(2025, 11, 14),
+            end: DateTime(2025, 12, 20),
+          ),
+        ],
+      );
+
+      final result = parser.parse(
+        '#история глава 5',
+        now: thursday,
+        calendar: calendar,
+      );
+
+      expect(result.single.usedSchedule, isFalse);
+    });
+
+    test('старый дедлайн в прошлом пропускается, берётся следующий урок', () {
+      final late = DateTime(2025, 11, 14, 21);
+      final calendar = calendarWith(<int, List<Lesson>>{
+        DateTime.saturday: <Lesson>[lesson('Алгебра')],
+        DateTime.monday: <Lesson>[lesson('Алгебра')],
+      });
+
+      final result = parser.parse(
+        '#алгебра упр 15',
+        now: late,
+        calendar: calendar,
+      );
+
+      // Суббота уже наступила, её дедлайн (пятница, 20:00) прошёл —
+      // парсер берёт понедельник.
+      expect(result.single.due, DateTime(2025, 11, 17));
+      expect(result.single.deadline, DateTime(2025, 11, 16, 20));
+    });
   });
 
   group('слипшийся текст', () {

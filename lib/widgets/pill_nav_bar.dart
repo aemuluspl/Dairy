@@ -11,6 +11,10 @@ class PillNavBar extends StatelessWidget {
     this.stylusWithLines = false,
   });
 
+  /// Сколько места снизу нужно оставлять экранам с `extendBody: true`,
+  /// чтобы последний элемент не прятался под капсулой.
+  static const double contentInset = 96;
+
   final int currentIndex;
   final ValueChanged<int> onSelect;
 
@@ -40,68 +44,65 @@ class PillNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final items = _items;
-    // Плотный фон под панелью: под скруглённой «таблеткой» нечему чернеть.
-    return ColoredBox(
-      color: palette.background,
-      child: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.only(bottom: 8),
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: palette.card,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: palette.border),
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final itemWidth = constraints.maxWidth / items.length;
-                    return Stack(
-                      children: <Widget>[
-                        // Ездящая капсула: один слой, без обрезки и теней.
-                        AnimatedPositioned(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOutCubic,
-                          left: currentIndex * itemWidth,
-                          top: 0,
-                          bottom: 0,
-                          width: itemWidth,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: palette.accent,
-                                borderRadius: BorderRadius.circular(22),
-                              ),
+    // Обёртка прозрачная: при extendBody фон под капсулой рисует сам экран.
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(bottom: 8),
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: palette.card,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: palette.border),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final itemWidth = constraints.maxWidth / items.length;
+                  return Stack(
+                    children: <Widget>[
+                      // Ездящая капсула: один слой, без обрезки и теней.
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        left: currentIndex * itemWidth,
+                        top: 0,
+                        bottom: 0,
+                        width: itemWidth,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: palette.accent,
+                              borderRadius: BorderRadius.circular(22),
                             ),
                           ),
                         ),
-                        Row(
-                          children: <Widget>[
-                            for (var index = 0; index < items.length; index++)
-                              Expanded(
-                                child: _NavButton(
-                                  data: items[index],
-                                  selected: currentIndex == index,
-                                  onTap: () {
-                                    if (currentIndex == index) return;
-                                    HapticFeedback.selectionClick();
-                                    onSelect(index);
-                                  },
-                                ),
+                      ),
+                      Row(
+                        children: <Widget>[
+                          for (var index = 0; index < items.length; index++)
+                            Expanded(
+                              child: _NavButton(
+                                data: items[index],
+                                selected: currentIndex == index,
+                                onTap: () {
+                                  if (currentIndex == index) return;
+                                  HapticFeedback.selectionClick();
+                                  onSelect(index);
+                                },
                               ),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),

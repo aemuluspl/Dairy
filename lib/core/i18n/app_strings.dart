@@ -61,10 +61,6 @@ class Strings {
       _t('Готово: ${tasksCount(count)}', 'Added: ${tasksCount(count)}');
   String get lightTheme => _t('Светлая тема', 'Light theme');
   String get darkTheme => _t('Тёмная тема', 'Dark theme');
-  String get hashtagHint => _t(
-        'Слово дополнится само — пробел превратит его в #хэштег',
-        'Words complete themselves — space turns them into a #hashtag',
-      );
 
   // ---------------------------------------------------------------------------
   // Tasks
@@ -78,10 +74,6 @@ class Strings {
       );
   String activeLine(int count) => '$count $activeWord';
   String get activeWord => _t('в работе', 'open');
-  String get swipeHint => _t(
-        'Свайп вправо или влево — выполнено',
-        'Swipe either way to complete',
-      );
   String completedCount(int count) =>
       _t('$count уже закрыто', '$count completed');
   String get completedSection => _t('Выполнено', 'Completed');
@@ -114,8 +106,8 @@ class Strings {
   String get save => _t('Сохранить', 'Save');
   String get deleteTaskTitle => _t('Удалить задачу?', 'Delete task?');
   String deleteTaskMessage(String subject) => _t(
-        'Задача «$subject» исчезнет из базы.',
-        '“$subject” will be removed from the database.',
+        'Задача «$subject» будет удалена.',
+        '“$subject” will be deleted.',
       );
   String deadlineSnack(String date) => _t('Дедлайн: $date', 'Due: $date');
   String get completedBadge => _t('Выполнено', 'Completed');
@@ -141,10 +133,20 @@ class Strings {
   String get tomorrowBadge => _t('завтра', 'tomorrow');
   String statusFirstLesson(String time) =>
       _t('Первый урок в $time', 'First lesson at $time');
-  String statusInLesson(String subject, String start) =>
-      _t('Сейчас: $subject · $start', 'Now: $subject · $start');
+  String statusInLesson(String subject, String start, String end) => _t(
+        'Сейчас: $subject · $start–$end',
+        'Now: $subject · $start–$end',
+      );
+  String statusNextLesson(String subject, String start, String end) => _t(
+        'Далее: $subject ($start–$end)',
+        'Next: $subject ($start–$end)',
+      );
   String statusBreak(String time) =>
       _t('Перемена до $time', 'Break until $time');
+  String statusBreakNext(String time, String subject) => _t(
+        'Перемена до $time · Далее: $subject',
+        'Break until $time · Next: $subject',
+      );
   String statusTomorrow(int count) =>
       _t('Завтра: ${lessonsCount(count)}', 'Tomorrow: ${lessonsCount(count)}');
   String statusNextDay(String day) => _t('Дальше: $day', 'Next: $day');
@@ -159,25 +161,6 @@ class Strings {
   String get lessonStart => _t('Начало', 'Start');
   String get lessonEnd => _t('Конец', 'End');
   String get deleteLessonTitle => _t('Удалить урок?', 'Delete lesson?');
-  String get reorderHint => _t(
-        'Перетащи уроки, чтобы поменять порядок',
-        'Drag lessons to reorder them',
-      );
-  String get aliasCardTitle => _t('Система алиасов', 'Alias system');
-  String get aliasCardSubtitle => _t(
-        'Парсер понимает синонимы предметов',
-        'The parser understands subject synonyms',
-      );
-  String get aliasCardFooter => _t(
-        'Так же работают #физра, #литра, #инфа, #англ и другие теги. '
-            'Алиасы лежат в отдельной коллекции Hive.',
-        '#fizra, #litra, #infa, #angl and other tags work too. '
-            'Aliases live in a separate Hive collection.',
-      );
-  String get scheduleStorageNote => _t(
-        'Расписание хранится в локальной базе Hive и попадает в JSON-экспорт.',
-        'The schedule is stored locally in Hive and included in the JSON export.',
-      );
   String get holidaysTitle => _t('Каникулы и выходные', 'Days off');
   String get holidaysHint => _t(
         'В эти дни уроков нет — парсер их пропускает',
@@ -224,17 +207,10 @@ class Strings {
         'Можно скрыть все сразу или очистить кабинет у отдельного урока',
         'Hide them all at once or clear the room for a single lesson',
       );
-  String get localDb => _t('ЛОКАЛЬНАЯ БАЗА', 'LOCAL DATA');
+  String get dataSection => _t('ДАННЫЕ', 'DATA');
   String get backupTitle => _t('Резервная копия', 'Backup');
-  String get backupSubtitle => _t(
-        'Снимок задач после каждого изменения',
-        'Tasks snapshot after every change',
-      );
   String get backupNever => _t('Копий пока нет', 'No backups yet');
-  String backupSummary(int count, String at) => _t(
-        'Задач: $count · $at',
-        'Tasks: $count · $at',
-      );
+  String backupUpdatedAt(String at) => _t('Обновлено: $at', 'Updated: $at');
   String get restore => _t('Восстановить', 'Restore');
   String get restoreTitle => _t('Восстановить задачи?', 'Restore tasks?');
   String restoreMessage(int count) => _t(
@@ -245,43 +221,60 @@ class Strings {
         'Восстановлено задач: $count',
         'Restored $count ${tasksWord(count)}',
       );
-  String get inProgress => _t('в работе', 'open');
-  String get completed => _t('выполнено', 'completed');
-  String get lessonsInSchedule =>
-      _t('Уроков в расписании', 'Lessons in schedule');
-  String get transfer => _t('ПЕРЕНОС ДАННЫХ', 'TRANSFER');
-  String get exportTitle => _t('Экспорт базы (JSON)', 'Export database (JSON)');
-  String get exportSubtitle => _t(
-        'Задачи, расписание и алиасы в одном файле.',
-        'Tasks, schedule and aliases in a single file.',
+
+  // ---------------------------------------------------------------------------
+  // Импорт и экспорт расписания
+  // ---------------------------------------------------------------------------
+
+  String get transferSection => _t('ИМПОРТ И ЭКСПОРТ', 'IMPORT & EXPORT');
+  String get transferJson => _t('Копировать JSON', 'Copy JSON');
+  String get transferText => _t('Копировать текстом', 'Copy as text');
+  String get transferImport => _t('Импортировать', 'Import');
+  String get transferJsonCopied => _t('JSON скопирован', 'JSON copied');
+  String get transferTextCopied => _t('Текст скопирован', 'Text copied');
+  String get transferImportTitle => _t('Импорт расписания', 'Import schedule');
+  String get transferImportHint => _t(
+        'Вставь JSON или текст расписания',
+        'Paste JSON or schedule text',
       );
-  String get showJson => _t('Показать JSON', 'Show JSON');
-  String get copy => _t('Копировать', 'Copy');
-  String get copied => _t(
-        'JSON скопирован в буфер обмена',
-        'JSON copied to the clipboard',
+  String get transferPaste => _t('Вставить', 'Paste');
+  String transferImported(int lessons) => _t(
+        'Импортировано: ${lessonsCount(lessons)}',
+        'Imported: ${lessonsCount(lessons)}',
       );
-  String get exportSheetTitle => _t('Экспорт базы', 'Export');
-  String exportSheetSubtitle(int tasks, int subjects) => _t(
-        '${tasksCount(tasks)} · ${subjectsCount(subjects)}',
-        '${tasksCount(tasks)} · ${subjectsCount(subjects)}',
+  String get transferImportFailed => _t(
+        'Не удалось разобрать расписание',
+        'Couldn’t parse the schedule',
       );
-  String get exportHint => _t(
-        'Скопируй JSON и сохрани как файл.',
-        'Copy the JSON and save it as a file.',
+  String get transferEmpty => _t(
+        'Поле пустое — вставь расписание',
+        'The field is empty — paste a schedule',
       );
-  String get unifiedDb => _t('ГОТОВНОСТЬ К ЕДИНОЙ БД', 'UNIFIED DB');
-  String get diagnostics => _t('ДИАГНОСТИКА', 'DIAGNOSTICS');
+
+  // ---------------------------------------------------------------------------
+  // Алиасы предметов
+  // ---------------------------------------------------------------------------
+
+  String get aliasesSection => _t('АЛИАСЫ ПРЕДМЕТОВ', 'SUBJECT ALIASES');
+  String get aliasesEmpty => _t(
+        'Добавь уроки — предметы появятся здесь.',
+        'Add lessons and subjects will appear here.',
+      );
+  String aliasesEditTitle(String subject) =>
+      _t('Алиасы: $subject', 'Aliases: $subject');
+  String get aliasesField => _t('Через запятую', 'Comma separated');
+  String aliasesSaved(String subject) =>
+      _t('Сохранено: $subject', 'Saved: $subject');
+  String get noAliases => _t('Только полное название', 'Full name only');
+
+  // ---------------------------------------------------------------------------
+  // Журнал
+  // ---------------------------------------------------------------------------
+
   String get logsTitle => _t('Журнал', 'Log');
-  String get logsSubtitle => _t(
-        'Ошибки и действия приложения. Всё хранится только на устройстве.',
-        'Errors and app events. Everything stays on the device.',
-      );
+  String get logsSubtitle =>
+      _t('Ошибки и действия приложения', 'Errors and app events');
   String get logsEmpty => _t('Записей пока нет', 'No entries yet');
-  String logsSummary(int count, int errors) => _t(
-        'Записей: $count · ошибок: $errors',
-        'Entries: $count · errors: $errors',
-      );
   String get copyLog => _t('Скопировать журнал', 'Copy log');
   String get clearLog => _t('Очистить журнал', 'Clear log');
   String get logsCopied => _t('Журнал скопирован', 'Log copied');
@@ -289,20 +282,7 @@ class Strings {
   String get clearLogQuestion =>
       _t('Удалить все записи журнала?', 'Delete all log entries?');
   String get back => _t('Назад', 'Back');
-  String get modulesTitle =>
-      _t('Модули, которые встанут рядом', 'Modules to come');
-  String get moduleHomework => _t('Домашка', 'Homework');
-  String get moduleNotes => _t('Заметки', 'Notes');
-  String get moduleContacts => _t('Контакты PDB', 'PDB Contacts');
-  String get moduleMore => _t('Ещё', 'More');
-  String get exportFormat => _t('Формат экспорта', 'Export format');
-  String get schemaVersion => _t('Версия схемы', 'Schema version');
-  String get storage => _t('Хранилище', 'Storage');
-  String get footerTitle => 'Hash · 1.0.3';
-  String get footerSubtitle => _t(
-        'Первый модуль единой информационной базы',
-        'First module of a unified database',
-      );
+  String get footerTitle => 'Hash · 1.1.0';
 
   // ---------------------------------------------------------------------------
   // Склонения и даты

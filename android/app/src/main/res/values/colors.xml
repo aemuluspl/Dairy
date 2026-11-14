@@ -2,4 +2,18 @@
 <resources>
     <!-- Фон иконки приложения (совпадает с фоном логотипа Hash). -->
     <color name="ic_launcher_background">#141414</color>
+
+    <!-- Палитра нативного виджета расписания. -->
+    <color name="widget_background_light">#FFFFFF</color>
+    <color name="widget_background_dark">#18181B</color>
+    <color name="widget_border_light">#EDEDF0</color>
+    <color name="widget_border_dark">#27272A</color>
+    <color name="widget_text_primary">#18181B</color>
+    <color name="widget_text_muted">#71717A</color>
+    <color name="widget_accent_light">#18181B</color>
+    <color name="widget_accent_dark">#FAFAFA</color>
+    <color name="widget_on_accent_light">#FFFFFF</color>
+    <color name="widget_on_accent_dark">#09090B</color>
+    <color name="widget_chip_light">#F1F1F3</color>
+    <color name="widget_chip_dark">#27272A</color>
 </resources>

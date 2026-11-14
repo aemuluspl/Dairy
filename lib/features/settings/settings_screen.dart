@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/diagnostics/app_log.dart';
 import '../../core/i18n/app_strings.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/date_text.dart';
 import '../../core/utils/max_width_box.dart';
 import '../../state/app_state.dart';
 import '../../widgets/app_snackbar.dart';
+import '../../widgets/pill_nav_bar.dart';
 import '../../widgets/top_bar.dart';
 import '../logs/logs_screen.dart';
 
@@ -33,7 +34,10 @@ class SettingsScreen extends StatelessWidget {
               Expanded(
                 child: ListView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.only(top: 2, bottom: 24),
+                  padding: const EdgeInsets.only(
+                    top: 2,
+                    bottom: PillNavBar.contentInset,
+                  ),
                   children: <Widget>[
                     _SectionLabel(strings.appearance),
                     const SizedBox(height: 8),
@@ -111,7 +115,15 @@ class SettingsScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    _SectionLabel(strings.localDb),
+                    _SectionLabel(strings.aliasesSection),
+                    const SizedBox(height: 8),
+                    _AliasesCard(state: state, strings: strings),
+                    const SizedBox(height: 18),
+                    _SectionLabel(strings.transferSection),
+                    const SizedBox(height: 8),
+                    _TransferCard(state: state, strings: strings),
+                    const SizedBox(height: 18),
+                    _SectionLabel(strings.dataSection),
                     const SizedBox(height: 8),
                     _Card(
                       padding: const EdgeInsets.fromLTRB(14, 2, 10, 2),
@@ -133,21 +145,414 @@ class SettingsScreen extends StatelessWidget {
                         color: palette.textMuted,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      strings.footerSubtitle,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: palette.textMuted,
-                      ),
-                    ),
                   ],
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AliasesCard extends StatelessWidget {
+  const _AliasesCard({required this.state, required this.strings});
+
+  final AppState state;
+  final Strings strings;
+
+  Future<void> _edit(BuildContext context, String subject) async {
+    final controller = TextEditingController(
+      text: state.resolver.aliasesFor(subject).join(', '),
+    );
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (dialogContext) {
+        final palette = dialogContext.palette;
+        return AlertDialog(
+          backgroundColor: palette.card,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(26),
+          ),
+          title: Text(
+            strings.aliasesEditTitle(subject),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+          ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            minLines: 1,
+            maxLines: 3,
+            textCapitalization: TextCapitalization.none,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: palette.textPrimary,
+            ),
+            decoration: InputDecoration(
+              labelText: strings.aliasesField,
+              labelStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: palette.textMuted,
+              ),
+              filled: true,
+              fillColor: palette.background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: palette.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: palette.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: palette.accent),
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(strings.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(
+                controller.text
+                    .split(RegExp(r'[,;\n]'))
+                    .map((alias) => alias.trim())
+                    .where((alias) => alias.isNotEmpty)
+                    .toList(growable: false),
+              ),
+              child: Text(strings.save),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    if (result == null || !context.mounted) return;
+    await state.setSubjectAliases(subject, result);
+    if (!context.mounted) return;
+    showAppSnackBar(
+      context,
+      strings.aliasesSaved(subject),
+      icon: Icons.tag_rounded,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final subjects = state.resolver.subjects;
+
+    if (subjects.isEmpty) {
+      return _Card(
+        padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+        child: Text(
+          strings.aliasesEmpty,
+          style: TextStyle(
+            fontSize: 11.5,
+            height: 1.35,
+            fontWeight: FontWeight.w600,
+            color: palette.textMuted,
+          ),
+        ),
+      );
+    }
+
+    return _Card(
+      padding: const EdgeInsets.fromLTRB(14, 2, 10, 2),
+      child: Column(
+        children: <Widget>[
+          for (var index = 0; index < subjects.length; index++) ...<Widget>[
+            if (index > 0) Divider(height: 1, color: palette.border),
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => _edit(context, subjects[index]),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            subjects[index],
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: palette.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            state.resolver.aliasesFor(subjects[index]).isEmpty
+                                ? strings.noAliases
+                                : state.resolver
+                                    .aliasesFor(subjects[index])
+                                    .join(', '),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: palette.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.edit_rounded,
+                      size: 18,
+                      color: palette.textMuted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TransferCard extends StatelessWidget {
+  const _TransferCard({required this.state, required this.strings});
+
+  final AppState state;
+  final Strings strings;
+
+  Future<void> _copyJson(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: state.exportScheduleJson()));
+    if (!context.mounted) return;
+    showAppSnackBar(
+      context,
+      strings.transferJsonCopied,
+      icon: Icons.copy_rounded,
+    );
+  }
+
+  Future<void> _copyText(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: state.exportScheduleText()));
+    if (!context.mounted) return;
+    showAppSnackBar(
+      context,
+      strings.transferTextCopied,
+      icon: Icons.copy_rounded,
+    );
+  }
+
+  Future<void> _import(BuildContext context) async {
+    final raw = await showDialog<String>(
+      context: context,
+      builder: (_) => _ImportDialog(strings: strings),
+    );
+    if (raw == null || !context.mounted) return;
+    if (raw.trim().isEmpty) {
+      showAppSnackBar(
+        context,
+        strings.transferEmpty,
+        icon: Icons.error_outline_rounded,
+        isError: true,
+      );
+      return;
+    }
+
+    final count = await state.importSchedule(raw);
+    if (!context.mounted) return;
+    if (count < 0) {
+      showAppSnackBar(
+        context,
+        strings.transferImportFailed,
+        icon: Icons.error_outline_rounded,
+        isError: true,
+      );
+      return;
+    }
+    showAppSnackBar(
+      context,
+      strings.transferImported(count),
+      icon: Icons.download_done_rounded,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return _Card(
+      padding: const EdgeInsets.fromLTRB(14, 2, 10, 2),
+      child: Column(
+        children: <Widget>[
+          _ActionRow(
+            icon: Icons.data_object_rounded,
+            title: strings.transferJson,
+            onTap: () => _copyJson(context),
+          ),
+          Divider(height: 1, color: palette.border),
+          _ActionRow(
+            icon: Icons.notes_rounded,
+            title: strings.transferText,
+            onTap: () => _copyText(context),
+          ),
+          Divider(height: 1, color: palette.border),
+          _ActionRow(
+            icon: Icons.download_rounded,
+            title: strings.transferImport,
+            onTap: () => _import(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportDialog extends StatefulWidget {
+  const _ImportDialog({required this.strings});
+
+  final Strings strings;
+
+  @override
+  State<_ImportDialog> createState() => _ImportDialogState();
+}
+
+class _ImportDialogState extends State<_ImportDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _paste() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text == null) return;
+    setState(() => _controller.text = text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return AlertDialog(
+      backgroundColor: palette.card,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+      title: Text(
+        widget.strings.transferImportTitle,
+        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: TextField(
+          controller: _controller,
+          minLines: 6,
+          maxLines: 10,
+          autocorrect: false,
+          enableSuggestions: false,
+          style: TextStyle(
+            fontSize: 12.5,
+            height: 1.35,
+            fontWeight: FontWeight.w600,
+            color: palette.textPrimary,
+          ),
+          decoration: InputDecoration(
+            hintText: widget.strings.transferImportHint,
+            hintStyle: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: palette.textMuted,
+            ),
+            filled: true,
+            fillColor: palette.background,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: palette.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: palette.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: palette.accent),
+            ),
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: _paste,
+          child: Text(widget.strings.transferPaste),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(widget.strings.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: Text(widget.strings.transferImport),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: palette.accentSoft,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, size: 19, color: palette.textPrimary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  color: palette.textPrimary,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: palette.textMuted,
+            ),
+          ],
         ),
       ),
     );
@@ -461,8 +866,7 @@ class _BackupCard extends StatelessWidget {
     final at = state.backupAt;
     final subtitle = at == null
         ? strings.backupNever
-        : strings.backupSummary(
-            state.backupCount,
+        : strings.backupUpdatedAt(
             formatDeadline(at, english: strings.isEnglish),
           );
 
@@ -536,8 +940,6 @@ class _LogsCardState extends State<_LogsCard> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final entries = AppLog.instance.entries.length;
-    final errors = AppLog.instance.errorCount;
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
@@ -574,7 +976,7 @@ class _LogsCardState extends State<_LogsCard> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    widget.strings.logsSummary(entries, errors),
+                    widget.strings.logsSubtitle,
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:school_diary/app.dart';
+import 'package:school_diary/data/models/lesson.dart';
 import 'package:school_diary/data/repositories/backup_repository.dart';
 import 'package:school_diary/data/repositories/schedule_repository.dart';
 import 'package:school_diary/data/repositories/settings_repository.dart';
@@ -44,6 +45,13 @@ void main() {
       backupRepository: backupRepository,
     );
     await state.load();
+
+    // Zero-seed: приложение стартует с пустым расписанием. Для сценариев
+    // ниже засеваем понедельник вручную — как это сделал бы пользователь.
+    await state.saveScheduleDay(DateTime.monday, const <Lesson>[
+      Lesson(subject: 'Алгебра', start: '08:00', end: '08:40', room: '204'),
+      Lesson(subject: 'Физика', start: '08:50', end: '09:30', room: '310'),
+    ]);
   });
 
   testWidgets('полный сценарий: вброс, задачи, календарь, детали', (
@@ -130,7 +138,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.textContaining('уроков'), findsWidgets);
+    expect(find.textContaining('урок'), findsWidgets);
     expect(find.text('Понедельник'), findsOneWidget);
 
     // Суббота ниже по списку — прокручиваем.
@@ -242,13 +250,7 @@ void main() {
     String label(String ru, String en) => state.strings.isEnglish ? en : ru;
 
     expect(find.text(label('Редактировать', 'Edit')), findsOneWidget);
-    expect(
-      find.text(label(
-        'Перетащи уроки, чтобы поменять порядок',
-        'Drag lessons to reorder them',
-      )),
-      findsOneWidget,
-    );
+    expect(find.text(label('Добавить урок', 'Add lesson')), findsOneWidget);
 
     final mondayBefore = state.lessonsFor(DateTime.monday).length;
 

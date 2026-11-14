@@ -6,11 +6,6 @@ class ScheduleRepository {
   static const String scheduleBoxName = 'schedule';
   static const String aliasesBoxName = 'aliases';
 
-  /// Версия стартового расписания. Если в приложении появляется новое
-  /// расписание по умолчанию, старые данные автоматически заменяются.
-  static const int seedVersion = 2;
-  static const String _seedVersionKey = '__seedVersion';
-
   late final Box<dynamic> _scheduleBox;
   late final Box<dynamic> _aliasesBox;
 
@@ -38,11 +33,6 @@ class ScheduleRepository {
     return result;
   }
 
-  int loadSeedVersion() {
-    final value = _scheduleBox.get(_seedVersionKey);
-    return value is int ? value : 0;
-  }
-
   Future<void> saveSchedule(Map<int, List<Lesson>> schedule) async {
     await _scheduleBox.clear();
     for (final entry in schedule.entries) {
@@ -51,7 +41,6 @@ class ScheduleRepository {
         entry.value.map((lesson) => lesson.toMap()).toList(growable: false),
       );
     }
-    await _scheduleBox.put(_seedVersionKey, seedVersion);
   }
 
   Map<String, List<String>> loadAliases() {

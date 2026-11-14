@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_title">Hash · Schedule</string>
+    <string name="widget_description">Today’s lessons and the time left in class</string>
+</resources>

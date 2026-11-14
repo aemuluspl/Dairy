@@ -18,6 +18,7 @@ class LiveStatus {
   const LiveStatus(
     this.kind, {
     this.lesson,
+    this.nextLesson,
     this.time,
     this.day,
     this.lessonCount,
@@ -25,17 +26,24 @@ class LiveStatus {
 
   final LiveStatusKind kind;
   final Lesson? lesson;
+
+  /// Ближайший урок после текущего или после перемены.
+  final Lesson? nextLesson;
   final String? time;
   final int? day;
   final int? lessonCount;
 }
 
-bool isSchoolDay(int weekday) =>
-    weekday >= DateTime.monday && weekday <= DateTime.saturday;
+bool isSchoolDay(int weekday, {bool saturdayOff = false}) {
+  if (weekday == DateTime.sunday) return false;
+  if (saturdayOff && weekday == DateTime.saturday) return false;
+  return weekday >= DateTime.monday && weekday <= DateTime.saturday;
+}
 
-int nextSchoolDay(int weekday) {
+int nextSchoolDay(int weekday, {bool saturdayOff = false}) {
   var next = weekday + 1;
   if (next > DateTime.saturday) next = DateTime.monday;
+  if (saturdayOff && next == DateTime.saturday) next = DateTime.monday;
   return next;
 }
 
@@ -59,11 +67,15 @@ DateTime? _lessonEnd(Lesson lesson, DateTime reference) {
 /// «Сегодня» — пока идёт учебный день (до конца последнего урока).
 /// «Завтра» — следующий учебный день, только если он наступает завтра
 /// (в воскресенье это понедельник, в субботу вечером — уже нет).
-DayMarks resolveDayMarks(DateTime now, Map<int, List<Lesson>> schedule) {
+DayMarks resolveDayMarks(
+  DateTime now,
+  Map<int, List<Lesson>> schedule, {
+  bool saturdayOff = false,
+}) {
   final weekday = now.weekday;
   var todayOpen = false;
 
-  if (isSchoolDay(weekday)) {
+  if (isSchoolDay(weekday, saturdayOff: saturdayOff)) {
     final lessons = schedule[weekday] ?? const <Lesson>[];
     if (lessons.isEmpty) {
       todayOpen = now.hour < 14;
@@ -75,16 +87,20 @@ DayMarks resolveDayMarks(DateTime now, Map<int, List<Lesson>> schedule) {
 
   final today = todayOpen ? weekday : null;
   final reference = today ?? weekday;
-  final next = nextSchoolDay(reference);
+  final next = nextSchoolDay(reference, saturdayOff: saturdayOff);
   final tomorrowDate = DateTime(now.year, now.month, now.day + 1);
   final tomorrow = !todayOpen && tomorrowDate.weekday == next ? next : null;
 
   return DayMarks(today: today, tomorrow: tomorrow);
 }
 
-LiveStatus resolveLiveStatus(DateTime now, Map<int, List<Lesson>> schedule) {
+LiveStatus resolveLiveStatus(
+  DateTime now,
+  Map<int, List<Lesson>> schedule, {
+  bool saturdayOff = false,
+}) {
   final weekday = now.weekday;
-  final marks = resolveDayMarks(now, schedule);
+  final marks = resolveDayMarks(now, schedule, saturdayOff: saturdayOff);
   final minutes = now.hour * 60 + now.minute;
 
   if (marks.today != null) {
@@ -94,25 +110,39 @@ LiveStatus resolveLiveStatus(DateTime now, Map<int, List<Lesson>> schedule) {
       return const LiveStatus(LiveStatusKind.tomorrow, lessonCount: 0);
     }
     if (minutes < minutesOf(first.start)) {
-      return LiveStatus(LiveStatusKind.beforeSchool, time: first.start);
+      return LiveStatus(
+        LiveStatusKind.beforeSchool,
+        nextLesson: first,
+        time: first.start,
+      );
     }
 
-    for (final lesson in lessons) {
+    for (var index = 0; index < lessons.length; index++) {
+      final lesson = lessons[index];
       if (minutes >= minutesOf(lesson.start) &&
           minutes < minutesOf(lesson.end)) {
-        return LiveStatus(LiveStatusKind.inLesson, lesson: lesson);
+        return LiveStatus(
+          LiveStatusKind.inLesson,
+          lesson: lesson,
+          nextLesson: index + 1 < lessons.length ? lessons[index + 1] : null,
+        );
       }
     }
 
-    for (final lesson in lessons) {
+    for (var index = 0; index < lessons.length; index++) {
+      final lesson = lessons[index];
       if (minutes < minutesOf(lesson.start)) {
-        return LiveStatus(LiveStatusKind.onBreak, time: lesson.start);
+        return LiveStatus(
+          LiveStatusKind.onBreak,
+          nextLesson: lesson,
+          time: lesson.start,
+        );
       }
     }
   }
 
   final reference = marks.today ?? weekday;
-  final next = nextSchoolDay(reference);
+  final next = nextSchoolDay(reference, saturdayOff: saturdayOff);
   final tomorrowDate = DateTime(now.year, now.month, now.day + 1);
   if (tomorrowDate.weekday == next) {
     return LiveStatus(

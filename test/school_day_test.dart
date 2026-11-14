@@ -72,4 +72,29 @@ void main() {
     expect(live.day, DateTime.thursday);
     expect(live.lessonCount, 7);
   });
+
+  test('живой статус отдаёт следующий урок', () {
+    final inLesson = resolveLiveStatus(DateTime(2026, 11, 11, 9), schedule);
+    expect(inLesson.nextLesson?.subject, 'История');
+    expect(inLesson.nextLesson?.start, '09:45');
+
+    final onBreak = resolveLiveStatus(DateTime(2026, 11, 11, 8, 45), schedule);
+    expect(onBreak.nextLesson?.subject, 'Физика');
+
+    final before = resolveLiveStatus(DateTime(2026, 11, 11, 7, 30), schedule);
+    expect(before.nextLesson?.subject, 'Алгебра');
+  });
+
+  test('суббота-выходной уводит «завтра» на понедельник', () {
+    final friday = DateTime(2026, 11, 13, 15);
+    final withSaturday = resolveDayMarks(friday, schedule);
+    expect(withSaturday.tomorrow, DateTime.saturday);
+
+    final marks = resolveDayMarks(friday, schedule, saturdayOff: true);
+    final live = resolveLiveStatus(friday, schedule, saturdayOff: true);
+
+    expect(marks.tomorrow, isNull);
+    expect(live.kind, LiveStatusKind.nextDay);
+    expect(live.day, DateTime.monday);
+  });
 }
