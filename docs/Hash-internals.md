@@ -1,6 +1,6 @@
 # Hash — техническая логика приложения
 
-**Версия документа:** 1.1.1
+**Версия документа:** 1.1.2
 **Назначение:** описание фактической внутренней логики «Hash» (школьный трекер домашних заданий): разбор ввода, расчёт дедлайнов, жизненный цикл задачи, хранение и взаимодействие с интерфейсом.
 **Границы документа:** только реализованное поведение. Всё, что ещё не реализовано, помечено явно — раздел 5.
 
@@ -29,7 +29,7 @@ UI (features/*)  →  AppState (ChangeNotifier)  →  Domain (parser, resolver) 
 | `tasks` | `task.id` (UUID v4) | Map задачи |
 | `schedule` | номер дня 1–7 | список уроков дня |
 | `aliases` | канонический предмет | ручные алиасы (полностью заменяют сгенерированные) |
-| `settings` | `themeMode`, `language`, `showRooms`, `newIconLines`, `saturdayOff`, `holidays` | строка/флаг/список периодов |
+| `settings` | `themeMode`, `language`, `showRooms`, `navBarStyle`, `widgetSimulatedTime`, `saturdayOff`, `holidays` | строка/флаг/список периодов |
 | `diary_backups` | `latest`, `previous` | снимок задач `{at, count, json}` |
 | `diary_logs` | автоинкремент | строка журнала (макс. 400) |
 | SharedPreferences `HomeWidgetPreferences` | `schedule_data` | JSON для нативного Android-виджета |

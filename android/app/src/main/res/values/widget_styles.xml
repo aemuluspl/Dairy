@@ -1,17 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Строка урока в виджете: имя слева, время справа. -->
+    <!-- Строка урока в виджете: номер, акцентная черта, имя, время. -->
     <style name="WidgetRow">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:orientation">horizontal</item>
         <item name="android:gravity">center_vertical</item>
         <item name="android:minHeight">26dp</item>
-        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingStart">8dp</item>
         <item name="android:paddingEnd">10dp</item>
         <item name="android:paddingTop">4dp</item>
         <item name="android:paddingBottom">4dp</item>
         <item name="android:layout_marginBottom">3dp</item>
+    </style>
+
+    <style name="WidgetRowNumber">
+        <item name="android:layout_width">16dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/widget_text_muted</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:visibility">gone</item>
+    </style>
+
+    <style name="WidgetRowStripe">
+        <item name="android:layout_width">3dp</item>
+        <item name="android:layout_height">22dp</item>
+        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:background">@drawable/widget_stripe_light</item>
     </style>
 
     <style name="WidgetRowName">

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/date_text.dart';
-import '../../core/utils/hero_tags.dart';
 import '../../core/utils/max_width_box.dart';
 import '../../data/models/task.dart';
 import '../../state/app_state.dart';
@@ -145,12 +144,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     children: <Widget>[
                       const SizedBox(height: 16),
                       Center(
-                        child: Hero(
-                          tag: taskHeroTag(_task.id),
-                          child: SubjectAvatar(
-                            subject: _task.subject,
-                            size: 86,
-                          ),
+                        child: SubjectAvatar(
+                          subject: _task.subject,
+                          size: 86,
                         ),
                       ),
                       const SizedBox(height: 18),

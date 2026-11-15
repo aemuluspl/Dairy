@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../core/i18n/app_strings.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/date_text.dart';
-import '../../core/utils/hero_tags.dart';
 import '../../data/models/task.dart';
 import '../../state/app_state.dart';
 import '../../widgets/subject_avatar.dart';
@@ -74,10 +73,7 @@ class TaskCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Hero(
-                    tag: taskHeroTag(task.id),
-                    child: SubjectAvatar(subject: task.subject, size: 44),
-                  ),
+                  SubjectAvatar(subject: task.subject, size: 44),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

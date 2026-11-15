@@ -5,12 +5,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:school_diary/app.dart';
+import 'package:school_diary/core/i18n/app_strings.dart';
 import 'package:school_diary/data/models/lesson.dart';
 import 'package:school_diary/data/repositories/backup_repository.dart';
 import 'package:school_diary/data/repositories/schedule_repository.dart';
 import 'package:school_diary/data/repositories/settings_repository.dart';
 import 'package:school_diary/data/repositories/task_repository.dart';
 import 'package:school_diary/features/schedule/schedule_screen.dart';
+import 'package:school_diary/features/settings/settings_screen.dart';
 import 'package:school_diary/features/tasks/task_card.dart';
 import 'package:school_diary/features/tasks/task_detail_screen.dart';
 import 'package:school_diary/state/app_state.dart';
@@ -153,17 +155,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Тема живёт на вложенном экране «Оформление».
-    await tester.tap(find.text('Оформление'));
+    // Тема раскрывается прямо в карточке — без перехода на другой экран.
+    await tester.tap(find.text('Тема'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Тёмная'));
     await tester.pumpAndSettle();
     expect(state.themeMode, ThemeMode.dark);
-    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
-    await tester.pumpAndSettle();
 
-    // Данные приложения — отдельный экран.
-    await tester.tap(find.text('Данные приложения'));
+    // Данные приложения — отдельный экран, карточка ниже по списку.
+    final dataCard = find.text('Данные приложения');
+    for (var attempt = 0; attempt < 6; attempt++) {
+      if (dataCard.evaluate().isNotEmpty) break;
+      await tester.drag(find.byType(SettingsScreen), const Offset(0, -220));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(dataCard);
     await tester.pumpAndSettle();
     expect(find.text('Резервная копия'), findsOneWidget);
     expect(find.text('Журнал'), findsOneWidget);
@@ -196,26 +202,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Полный английский режим.
+    // Язык раскрывается в самой карточке.
     await tester.tap(find.text('Язык'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('English'));
     await tester.pumpAndSettle();
-    expect(find.text('Language'), findsOneWidget);
-    expect(find.text('Mixed'), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
-    await tester.pumpAndSettle();
+    expect(state.language, AppLanguage.english);
     expect(find.text('APPEARANCE'), findsOneWidget);
     expect(find.text('DATA'), findsOneWidget);
 
     // Смешанный режим: вкладки английские, содержимое русское.
-    await tester.tap(find.text('Language'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Mixed'));
     await tester.pumpAndSettle();
-    expect(find.text('ЯЗЫК'), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
-    await tester.pumpAndSettle();
+    expect(state.language, AppLanguage.mixed);
     expect(find.text('ОФОРМЛЕНИЕ'), findsOneWidget);
     expect(find.text('Данные приложения'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);

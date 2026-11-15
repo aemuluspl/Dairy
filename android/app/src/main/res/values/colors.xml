@@ -10,10 +10,22 @@
     <color name="widget_border_dark">#27272A</color>
     <color name="widget_text_primary">#18181B</color>
     <color name="widget_text_muted">#71717A</color>
-    <color name="widget_accent_light">#18181B</color>
-    <color name="widget_accent_dark">#FAFAFA</color>
+
+    <!-- Плашка текущего урока: максимальный контраст с фоном. -->
+    <color name="widget_accent_light">#000000</color>
+    <color name="widget_accent_dark">#FFFFFF</color>
     <color name="widget_on_accent_light">#FFFFFF</color>
-    <color name="widget_on_accent_dark">#09090B</color>
-    <color name="widget_chip_light">#F1F1F3</color>
-    <color name="widget_chip_dark">#27272A</color>
+    <color name="widget_on_accent_dark">#000000</color>
+
+    <!-- Обводка следующего урока: 100% непрозрачная, без полутонов. -->
+    <color name="widget_stroke_light">#000000</color>
+    <color name="widget_stroke_dark">#FFFFFF</color>
+
+    <!-- Вертикальная черта урока, как на экране расписания. -->
+    <color name="widget_stripe_light">#18181B</color>
+    <color name="widget_stripe_dark">#FFFFFF</color>
+
+    <!-- Тонкая разделительная черта перемены. -->
+    <color name="widget_divider_light">#E4E4E7</color>
+    <color name="widget_divider_dark">#3F3F46</color>
 </resources>

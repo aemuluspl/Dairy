@@ -128,7 +128,7 @@ class _HomeShellState extends State<HomeShell> {
             : PillNavBar(
                 currentIndex: _currentIndex,
                 onSelect: _select,
-                stylusWithLines: state.newIconLines,
+                style: state.navBarStyle,
                 showSettingsBadge: state.updateAvailable,
               ),
       ),

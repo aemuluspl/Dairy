@@ -119,7 +119,9 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_note, "")
             showRows(
                 views = views,
-                rows = listOf(Row(labels.emptyState, null, RowStyle.MESSAGE)),
+                rows = listOf(
+                    Row(labels.emptyState, null, RowStyle.MESSAGE, null),
+                ),
                 capacity = 1,
                 dark = dark,
                 primary = primary,
@@ -131,8 +133,10 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
 
         val calendar = Calendar.getInstance()
         val day = dartDayOf(calendar)
-        val nowMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 +
+        val systemMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 +
             calendar.get(Calendar.MINUTE)
+        // Отладочная симуляция времени важнее системных часов.
+        val nowMinutes = payload.simulatedMinutes ?: systemMinutes
         val dayOff = day == 7 || (payload.saturdayOff && day == 6)
         val lessons = if (dayOff) {
             emptyList()
@@ -151,6 +155,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                     if (dayOff) labels.dayOff else labels.noLessons,
                     null,
                     RowStyle.MESSAGE,
+                    null,
                 ),
             )
         } else {
@@ -193,13 +198,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                 nowMinutes >= lessons[index - 1].end &&
                 nowMinutes < lesson.start
             ) {
-                rows.add(
-                    Row(
-                        labels.breakUntil(lesson.startText),
-                        null,
-                        RowStyle.BREAK,
-                    ),
-                )
+                rows.add(Row("", null, RowStyle.BREAK, null))
             }
 
             val style = when {
@@ -217,6 +216,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                     labels.lessonName(lesson.subject, lesson.room, showRooms),
                     labels.interval(lesson.startText, lesson.endText),
                     style,
+                    lesson.number,
                 ),
             )
         }
@@ -269,12 +269,14 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
         val rowId = ROW_IDS[index]
         val nameId = ROW_NAME_IDS[index]
         val timeId = ROW_TIME_IDS[index]
+        val numberId = ROW_NUMBER_IDS[index]
+        val stripeId = ROW_STRIPE_IDS[index]
 
         views.setViewVisibility(rowId, View.VISIBLE)
         views.setTextViewTextSize(
             nameId,
             android.util.TypedValue.COMPLEX_UNIT_SP,
-            if (row.style == RowStyle.BREAK) 10f else 12f,
+            12f,
         )
 
         val background = when (row.style) {
@@ -310,15 +312,47 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
             else -> muted
         }
 
+        val showContent = row.style != RowStyle.BREAK &&
+            row.style != RowStyle.MESSAGE
+
+        views.setViewVisibility(nameId, if (row.style == RowStyle.BREAK) {
+            View.GONE
+        } else {
+            View.VISIBLE
+        })
         views.setTextViewText(nameId, row.text)
         views.setTextColor(nameId, nameColor)
 
-        if (row.time == null) {
+        if (row.time == null || row.style == RowStyle.BREAK) {
             views.setViewVisibility(timeId, View.GONE)
         } else {
             views.setViewVisibility(timeId, View.VISIBLE)
             views.setTextViewText(timeId, row.time)
             views.setTextColor(timeId, timeColor)
+        }
+
+        // Номер урока: только если он есть в данных (у РОВ приходит null).
+        if (showContent && row.number != null) {
+            views.setViewVisibility(numberId, View.VISIBLE)
+            views.setTextViewText(numberId, row.number.toString())
+            views.setTextColor(numberId, timeColor)
+        } else {
+            views.setViewVisibility(numberId, View.GONE)
+        }
+
+        // Вертикальная черта как на экране расписания.
+        if (showContent) {
+            views.setViewVisibility(stripeId, View.VISIBLE)
+            val stripeColor = when (row.style) {
+                RowStyle.CURRENT ->
+                    if (dark) Color.BLACK else Color.WHITE
+                RowStyle.PAST -> withAlpha(primary, 0.18f)
+                RowStyle.NEXT -> primary
+                else -> withAlpha(primary, 0.38f)
+            }
+            views.setInt(stripeId, "setBackgroundColor", stripeColor)
+        } else {
+            views.setViewVisibility(stripeId, View.GONE)
         }
     }
 
@@ -363,6 +397,11 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                         val item = array.optJSONObject(index) ?: continue
                         val startText = item.optString("start", "08:00")
                         val endText = item.optString("end", "08:40")
+                        val number = if (item.isNull("number")) {
+                            null
+                        } else {
+                            item.optInt("number", -1).takeIf { it > 0 }
+                        }
                         val roomRaw = item.opt("room")
                         val room = if (roomRaw == null || roomRaw == JSONObject.NULL) {
                             null
@@ -377,6 +416,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                                 startText = startText,
                                 endText = endText,
                                 room = room,
+                                number = number,
                             ),
                         )
                     }
@@ -390,6 +430,9 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                 saturdayOff = root.optBoolean("saturdayOff", false),
                 dark = root.optBoolean("dark", false),
                 english = root.optBoolean("english", false),
+                simulatedMinutes = parseTimeOrNull(
+                    root.optString("simulatedTime", ""),
+                ),
             )
         } catch (_: Exception) {
             null
@@ -402,7 +445,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
 
     private fun scheduleNextUpdate(context: Context) {
         val payload = readPayload(context)
-        if (payload == null) {
+        if (payload == null || payload.simulatedMinutes != null) {
             cancelUpdate(context)
             return
         }
@@ -503,6 +546,18 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
         return if (day == Calendar.SUNDAY) 7 else day - 1
     }
 
+    /// «HH:mm» → минуты от полуночи, либо null для пустой/битой строки.
+    private fun parseTimeOrNull(value: String): Int? {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty()) return null
+        if (!trimmed.contains(":")) return null
+        val parts = trimmed.split(":")
+        val hours = parts.getOrNull(0)?.trim()?.toIntOrNull() ?: return null
+        val minutes = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: return null
+        if (hours !in 0..23 || minutes !in 0..59) return null
+        return hours * 60 + minutes
+    }
+
     private fun minutesOf(value: String): Int {
         val parts = value.split(":")
         val hours = parts.getOrNull(0)?.trim()?.toIntOrNull() ?: 8
@@ -522,6 +577,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
         val startText: String,
         val endText: String,
         val room: String?,
+        val number: Int?,
     )
 
     private data class Payload(
@@ -530,12 +586,14 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
         val saturdayOff: Boolean,
         val dark: Boolean,
         val english: Boolean,
+        val simulatedMinutes: Int?,
     )
 
     private data class Row(
         val text: String,
         val time: String?,
         val style: RowStyle,
+        val number: Int?,
     )
 
     private enum class RowStyle {
@@ -567,9 +625,6 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
             val index = (day - 1).coerceIn(0, 6)
             return if (english) DAYS_EN[index] else DAYS_RU[index]
         }
-
-        fun breakUntil(start: String): String =
-            if (english) "Break · until $start" else "Перемена · до $start"
 
         fun interval(start: String, end: String): String = "$start–$end"
 
@@ -608,6 +663,26 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
             R.id.row_6_name,
             R.id.row_7_name,
         )
+        private val ROW_NUMBER_IDS = intArrayOf(
+            R.id.row_0_num,
+            R.id.row_1_num,
+            R.id.row_2_num,
+            R.id.row_3_num,
+            R.id.row_4_num,
+            R.id.row_5_num,
+            R.id.row_6_num,
+            R.id.row_7_num,
+        )
+        private val ROW_STRIPE_IDS = intArrayOf(
+            R.id.row_0_stripe,
+            R.id.row_1_stripe,
+            R.id.row_2_stripe,
+            R.id.row_3_stripe,
+            R.id.row_4_stripe,
+            R.id.row_5_stripe,
+            R.id.row_6_stripe,
+            R.id.row_7_stripe,
+        )
         private val ROW_TIME_IDS = intArrayOf(
             R.id.row_0_time,
             R.id.row_1_time,
@@ -624,7 +699,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
         private val LIGHT_ON_ACCENT = Color.parseColor("#FFFFFF")
         private val DARK_TEXT = Color.parseColor("#FAFAFA")
         private val DARK_MUTED = Color.parseColor("#A1A1AA")
-        private val DARK_ON_ACCENT = Color.parseColor("#09090B")
+        private val DARK_ON_ACCENT = Color.parseColor("#000000")
 
         private val DAYS_RU = arrayOf(
             "Понедельник",

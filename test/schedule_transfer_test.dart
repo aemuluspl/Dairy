@@ -137,4 +137,89 @@ void main() {
     expect(ScheduleTransferService.tryParse('{не json'), isNull);
     expect(ScheduleTransferService.tryParse('просто текст'), isNull);
   });
+
+  test('эталонный JSON: русские дни, number и null', () {
+    const raw = '''
+{
+  "bells": [{"start": "08:00", "end": "08:40"}, {"start": "08:50", "end": "09:30"}],
+  "days": {
+    "Понедельник": [
+      {"number": 1, "subject": "Алгебра", "start": "08:00", "end": "08:40", "room": "204"},
+      {"number": null, "subject": "РОВ", "start": "08:50", "end": "09:30", "room": null},
+      {"number": 3, "subject": "Физика", "time": "09:45 — 10:25"}
+    ]
+  }
+}
+''';
+
+    final parsed = ScheduleTransferService.tryParse(raw);
+    expect(parsed, isNotNull);
+
+    final monday = parsed!.schedule[DateTime.monday]!;
+    expect(monday, hasLength(3));
+    expect(monday[0].number, 1);
+    expect(monday[0].room, '204');
+    expect(monday[1].number, isNull);
+    expect(monday[1].room, isNull);
+    expect(monday[1].start, '08:50');
+    expect(monday[2].number, 3);
+    expect(monday[2].start, '09:45');
+    expect(monday[2].end, '10:25');
+
+    // Глобальная сетка не превращается в звонки дней: время берётся
+    // из start/end каждого урока.
+    expect(parsed.bellsByDay, isEmpty);
+  });
+
+  test('дни массивом и короткие имена полей', () {
+    const raw = '{"schedule":[{"day":"вторник","lessons":['
+        '{"name":"Химия","start":"8.00","end":"8.40","cabinet":"12"},'
+        '{"title":"РОВ","start":"9:00","end":"9:40","number":null}]}]}';
+
+    final parsed = ScheduleTransferService.tryParse(raw);
+    expect(parsed, isNotNull);
+
+    final tuesday = parsed!.schedule[DateTime.tuesday]!;
+    expect(tuesday, hasLength(2));
+    expect(tuesday.first.subject, 'Химия');
+    expect(tuesday.first.start, '08:00');
+    expect(tuesday.first.room, '12');
+    expect(tuesday.last.subject, 'РОВ');
+    expect(tuesday.last.number, isNull);
+  });
+
+  test('голый словарь дней в корне', () {
+    const raw = '{"monday":[{"subject":"Труд","start":"10:00","end":"10:40"}]}';
+
+    final parsed = ScheduleTransferService.tryParse(raw);
+    expect(parsed, isNotNull);
+    expect(parsed!.schedule[DateTime.monday]!.single.subject, 'Труд');
+    expect(parsed.schedule[DateTime.monday]!.single.start, '10:00');
+  });
+
+  test('номер урока переживает экспорт и импорт', () {
+    final raw = ScheduleTransferService.exportJson(
+      schedule: <int, List<Lesson>>{
+        DateTime.monday: const <Lesson>[
+          Lesson(
+            subject: 'Алгебра',
+            start: '08:00',
+            end: '08:40',
+            room: '204',
+            number: 2,
+          ),
+          Lesson(subject: 'РОВ', start: '08:50', end: '09:30'),
+        ],
+      },
+      aliases: const <String, List<String>>{},
+      bellsByDay: const <int, List<Bell>>{},
+    );
+
+    final parsed = ScheduleTransferService.tryParse(raw);
+    expect(parsed, isNotNull);
+
+    final monday = parsed!.schedule[DateTime.monday]!;
+    expect(monday.first.number, 2);
+    expect(monday.last.number, isNull);
+  });
 }

@@ -24,7 +24,6 @@ class TasksScreen extends StatefulWidget {
 
 class _TasksScreenState extends State<TasksScreen> {
   final Set<String> _hiddenTaskIds = <String>{};
-  final Set<String> _collapsingIds = <String>{};
 
   Future<void> _pickDate(Task task) async {
     final state = context.read<AppState>();
@@ -41,20 +40,9 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   Future<void> _toggle(Task task) async {
-    if (_collapsingIds.contains(task.id)) return;
-
-    // Сначала карточка плавно сворачивается, и только потом задача
-    // переезжает в «Выполнено» — без рывка списка.
-    setState(() => _collapsingIds.add(task.id));
-    await Future<void>.delayed(const Duration(milliseconds: 240));
-    if (!mounted) return;
-
     final state = context.read<AppState>();
     final updated = await state.toggleCompleted(task);
-    if (!mounted) return;
-
-    setState(() => _collapsingIds.remove(task.id));
-    if (updated == null) return;
+    if (!mounted || updated == null) return;
 
     final strings = state.strings;
     showAppSnackBar(
@@ -134,21 +122,16 @@ class _TasksScreenState extends State<TasksScreen> {
     final percent = (progress * 100).round();
 
     Widget cardFor(Task task) {
-      return _AnimatedCardSlot(
-        // Ключ включает статус: после переключения карточка монтируется
-        // заново и плавно появляется в новой секции.
-        key: ValueKey<String>('${task.id}:${task.isCompleted}'),
-        collapsing: _collapsingIds.contains(task.id),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: TaskCard(
-            task: task,
-            onTap: () => _pickDate(task),
-            onToggle: () => _toggle(task),
-            onDismissed: () => _toggleBySwipe(task),
-            onDelete: () => _deleteBySwipe(task),
-            onOpenDetails: () => _openDetails(task),
-          ),
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: TaskCard(
+          key: ValueKey<String>(task.id),
+          task: task,
+          onTap: () => _pickDate(task),
+          onToggle: () => _toggle(task),
+          onDismissed: () => _toggleBySwipe(task),
+          onDelete: () => _deleteBySwipe(task),
+          onOpenDetails: () => _openDetails(task),
         ),
       );
     }
@@ -442,66 +425,6 @@ class _GroupHeader extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Плавное сворачивание карточки перед переносом в другую секцию.
-class _AnimatedCardSlot extends StatefulWidget {
-  const _AnimatedCardSlot({
-    super.key,
-    required this.collapsing,
-    required this.child,
-  });
-
-  final bool collapsing;
-  final Widget child;
-
-  @override
-  State<_AnimatedCardSlot> createState() => _AnimatedCardSlotState();
-}
-
-class _AnimatedCardSlotState extends State<_AnimatedCardSlot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 240),
-    value: 0,
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    if (!widget.collapsing) _controller.forward();
-  }
-
-  @override
-  void didUpdateWidget(covariant _AnimatedCardSlot oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.collapsing == widget.collapsing) return;
-    if (widget.collapsing) {
-      _controller.reverse();
-    } else {
-      _controller.forward();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final curved = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOutCubic,
-    );
-    return SizeTransition(
-      sizeFactor: curved,
-      alignment: Alignment.topCenter,
-      child: FadeTransition(opacity: curved, child: widget.child),
     );
   }
 }

@@ -198,9 +198,10 @@ class Strings {
   String get settingsTitle => _t('Настройки', 'Settings');
 
   // Главное меню настроек.
-  String get settingsAppearance => _t('Оформление', 'Appearance');
-  String get settingsAppearanceSubtitle =>
-      _t('Тема и иконка вкладки New', 'Theme and New tab icon');
+  String get themeTitle => _t('Тема', 'Theme');
+  String get navBarTitle => _t('Стиль навигации', 'Navigation style');
+  String get navBarClassic => _t('Классический', 'Classic');
+  String get navBarGlass => 'Liquid Glass';
   String get settingsLanguage => _t('Язык', 'Language');
   String get settingsLanguageSubtitle =>
       _t('Русский, English или смешанный', 'Russian, English or mixed');
@@ -238,11 +239,13 @@ class Strings {
   String updateLastCheck(String at) => _t('Проверено: $at', 'Checked: $at');
 
   // Виджет.
-  String get widgetStubTitle => _t('Скоро здесь', 'Coming soon');
-  String get widgetStubMessage => _t(
-        'Здесь появятся настройки темы и содержимого виджета.',
-        'Widget theme and content settings will appear here.',
+  String get widgetSimulationTitle => _t('Симуляция времени', 'Time simulation');
+  String get widgetSimulationHint => _t(
+        'Виджет возьмёт это время вместо системного',
+        'The widget uses this time instead of the system clock',
       );
+  String get widgetSimulationOff => _t('Системное время', 'System time');
+  String get widgetSimulationReset => _t('Сбросить', 'Reset');
   String get appearance => _t('ОФОРМЛЕНИЕ', 'APPEARANCE');
   String get themeLight => _t('Светлая', 'Light');
   String get themeDark => _t('Тёмная', 'Dark');
@@ -253,9 +256,6 @@ class Strings {
   String get languageEnglish => _t('English', 'English');
   String get languageEnglishHint =>
       _t('Всё на английском', 'Everything in English');
-  String get newIconTitle => _t('Иконка вкладки New', 'New tab icon');
-  String get newIconHint =>
-      _t('Стилус с линиями или карандаш', 'Stylus with lines or pencil');
   String get scheduleSection => _t('РАСПИСАНИЕ', 'SCHEDULE');
   String get showRooms => _t('Показывать кабинеты', 'Show room numbers');
   String get showRoomsHint => _t(

@@ -623,6 +623,8 @@ class _LessonDialogState extends State<_LessonDialog> {
           start: _startValue,
           end: _endValue,
           room: _room.text.trim().isEmpty ? null : _room.text.trim(),
+          // Импортированный номер урока не теряется при правке.
+          number: widget.initial?.number,
         ),
       ),
     );

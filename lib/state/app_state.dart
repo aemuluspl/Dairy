@@ -8,6 +8,7 @@ import '../core/i18n/app_strings.dart';
 import '../data/models/bell.dart';
 import '../data/models/holiday.dart';
 import '../data/models/lesson.dart';
+import '../data/models/nav_bar_style.dart';
 import '../data/models/task.dart';
 import '../data/repositories/backup_repository.dart';
 import '../data/repositories/schedule_repository.dart';
@@ -45,7 +46,8 @@ class AppState extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   AppLanguage _language = AppLanguage.mixed;
   bool _showRooms = true;
-  bool _newIconLines = false;
+  NavBarStyle _navBarStyle = NavBarStyle.classic;
+  String? _widgetSimulatedTime;
   bool _saturdayOff = false;
   List<HolidayPeriod> _holidays = <HolidayPeriod>[];
   bool _updateAvailable = false;
@@ -71,7 +73,8 @@ class AppState extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   AppLanguage get language => _language;
   bool get showRooms => _showRooms;
-  bool get newIconLines => _newIconLines;
+  NavBarStyle get navBarStyle => _navBarStyle;
+  String? get widgetSimulatedTime => _widgetSimulatedTime;
   bool get saturdayOff => _saturdayOff;
   List<HolidayPeriod> get holidays =>
       List<HolidayPeriod>.unmodifiable(_holidays);
@@ -136,7 +139,8 @@ class AppState extends ChangeNotifier {
     _themeMode = settingsRepository.loadThemeMode();
     _language = settingsRepository.loadLanguage();
     _showRooms = settingsRepository.loadShowRooms();
-    _newIconLines = settingsRepository.loadNewIconLines();
+    _navBarStyle = settingsRepository.loadNavBarStyle();
+    _widgetSimulatedTime = settingsRepository.loadWidgetSimulatedTime();
     _saturdayOff = settingsRepository.loadSaturdayOff();
     _holidays = settingsRepository.loadHolidays();
     _latestVersion = settingsRepository.loadLatestVersion();
@@ -262,11 +266,23 @@ class AppState extends ChangeNotifier {
     unawaited(_syncWidget());
   }
 
-  Future<void> setNewIconLines(bool value) async {
-    if (_newIconLines == value) return;
-    _newIconLines = value;
+  Future<void> setNavBarStyle(NavBarStyle style) async {
+    if (_navBarStyle == style) return;
+    _navBarStyle = style;
     notifyListeners();
-    await settingsRepository.saveNewIconLines(value);
+    await settingsRepository.saveNavBarStyle(style);
+  }
+
+  /// Отладочное время нативного виджета. `null` — системное время.
+  Future<void> setWidgetSimulatedTime(String? value) async {
+    final normalized = (value == null || value.trim().isEmpty)
+        ? null
+        : value.trim();
+    if (_widgetSimulatedTime == normalized) return;
+    _widgetSimulatedTime = normalized;
+    notifyListeners();
+    await settingsRepository.saveWidgetSimulatedTime(normalized);
+    unawaited(_syncWidget());
   }
 
   Future<void> setSaturdayOff(bool value) async {
@@ -480,6 +496,7 @@ class AppState extends ChangeNotifier {
       saturdayOff: _saturdayOff,
       dark: dark,
       english: _language == AppLanguage.english,
+      simulatedTime: _widgetSimulatedTime,
     );
   }
 

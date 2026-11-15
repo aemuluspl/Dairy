@@ -22,6 +22,7 @@ class HomeWidgetService {
     required bool saturdayOff,
     required bool dark,
     required bool english,
+    String? simulatedTime,
   }) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
 
@@ -39,6 +40,7 @@ class HomeWidgetService {
         'saturdayOff': saturdayOff,
         'dark': dark,
         'english': english,
+        if (simulatedTime != null) 'simulatedTime': simulatedTime,
         'days': days,
       });
 

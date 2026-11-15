@@ -3,13 +3,15 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../core/i18n/app_strings.dart';
 import '../models/holiday.dart';
+import '../models/nav_bar_style.dart';
 
 class SettingsRepository {
   static const String boxName = 'settings';
   static const String _themeKey = 'themeMode';
   static const String _languageKey = 'language';
   static const String _showRoomsKey = 'showRooms';
-  static const String _newIconLinesKey = 'newIconLines';
+  static const String _navBarStyleKey = 'navBarStyle';
+  static const String _widgetSimulatedTimeKey = 'widgetSimulatedTime';
   static const String _holidaysKey = 'holidays';
   static const String _saturdayOffKey = 'saturdayOff';
   static const String _latestVersionKey = 'latestVersion';
@@ -44,10 +46,25 @@ class SettingsRepository {
 
   Future<void> saveShowRooms(bool value) => _box.put(_showRoomsKey, value);
 
-  bool loadNewIconLines() => _box.get(_newIconLinesKey) as bool? ?? false;
+  NavBarStyle loadNavBarStyle() =>
+      NavBarStyle.fromId(_box.get(_navBarStyleKey));
 
-  Future<void> saveNewIconLines(bool value) =>
-      _box.put(_newIconLinesKey, value);
+  Future<void> saveNavBarStyle(NavBarStyle style) =>
+      _box.put(_navBarStyleKey, style.name);
+
+  /// Ручное время для отладки нативного виджета: «HH:mm» или `null`.
+  String? loadWidgetSimulatedTime() {
+    final value = _box.get(_widgetSimulatedTimeKey);
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  Future<void> saveWidgetSimulatedTime(String? value) async {
+    if (value == null) {
+      await _box.delete(_widgetSimulatedTimeKey);
+      return;
+    }
+    await _box.put(_widgetSimulatedTimeKey, value);
+  }
 
   bool loadSaturdayOff() => _box.get(_saturdayOffKey) as bool? ?? false;
 

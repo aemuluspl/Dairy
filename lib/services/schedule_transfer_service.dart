@@ -58,6 +58,16 @@ class ScheduleTransferService {
     'Воскресенье',
   ];
 
+  static const List<String> _weekdayShort = <String>[
+    'пн',
+    'вт',
+    'ср',
+    'чт',
+    'пт',
+    'сб',
+    'вс',
+  ];
+
   /// Уникальные звонки из расписания в порядке возрастания времени.
   static List<Bell> deriveBells(Map<int, List<Lesson>> schedule) {
     final seen = <String>{};
@@ -166,25 +176,40 @@ class ScheduleTransferService {
   }
 
   static ScheduleImport? _fromJson(Map<dynamic, dynamic> root) {
-    // Новый формат: {schedule, bells, aliases}.
-    var rawSchedule = root['schedule'];
-    var rawBells = root['bells'];
-    var rawAliases = root['aliases'];
+    dynamic rawSchedule;
+    dynamic rawBells;
+    dynamic rawAliases;
 
-    // Совместимость со старым экспортом 1.0.x:
-    // {modules: {homework: {schedule, subjectAliases}}}.
-    if (rawSchedule == null && root['modules'] is Map) {
-      final modules = root['modules'] as Map;
-      final homework = modules['homework'];
-      if (homework is Map) {
-        rawSchedule = homework['schedule'];
-        rawAliases = homework['subjectAliases'];
+    void readContainer(Map<dynamic, dynamic> map) {
+      rawSchedule ??=
+          map['schedule'] ?? map['days'] ?? map['week'] ?? map['timetable'];
+      rawBells ??= map['bells'] ?? map['calls'] ?? map['bellSchedule'];
+      rawAliases ??= map['aliases'] ?? map['subjectAliases'];
+
+      // Совместимость со старым экспортом 1.0.x:
+      // {modules: {homework: {schedule, subjectAliases}}}.
+      final modules = map['modules'];
+      if (modules is Map) {
+        final homework = modules['homework'];
+        if (homework is Map) {
+          rawSchedule ??= homework['schedule'];
+          rawAliases ??= homework['subjectAliases'];
+        }
       }
     }
 
-    if (rawSchedule is! Map) return null;
+    readContainer(root);
 
-    // v2: bells — карта {день: [{start, end}, ...]}. v1: плоский список.
+    // Голый словарь дней: {"Понедельник": [...], "monday": [...]}.
+    if (rawSchedule == null &&
+        root.keys.any((key) => _dayNumber(key.toString()) != null)) {
+      rawSchedule = root;
+    }
+    if (rawSchedule == null) return null;
+
+    // Звонки по дням — единственная сетка, которой доверяем для
+    // отображения. Плоский список считается глобальной сеткой и
+    // используется только как запасной вариант для уроков без времени.
     final bellsByDay = <int, List<Bell>>{};
     final legacyBells = <Bell>[];
     if (rawBells is Map) {
@@ -203,25 +228,19 @@ class ScheduleTransferService {
         day: <Lesson>[],
     };
 
-    for (final entry in rawSchedule.entries) {
-      final day = _dayNumber(entry.key.toString());
-      if (day == null) continue;
-      final rawLessons = entry.value;
-      if (rawLessons is! List) continue;
+    for (final entry in _dayEntries(rawSchedule).entries) {
+      final day = entry.key;
+      final dayBells = bellsByDay[day] ?? const <Bell>[];
+      final items = entry.value;
 
-      for (var index = 0; index < rawLessons.length; index++) {
-        final item = rawLessons[index];
+      for (var index = 0; index < items.length; index++) {
+        final item = items[index];
         if (item is! Map) continue;
-        final dayBells = bellsByDay[day] ?? const <Bell>[];
         final fallback = index < dayBells.length
             ? dayBells[index]
             : (index < legacyBells.length ? legacyBells[index] : null);
-        final lesson = Lesson(
-          subject: item['subject']?.toString() ?? 'Предмет',
-          start: item['start']?.toString() ?? fallback?.start ?? '08:00',
-          end: item['end']?.toString() ?? fallback?.end ?? '08:40',
-          room: item['room']?.toString(),
-        );
+        final lesson = _parseLesson(item, fallback);
+        if (lesson == null) continue;
         schedule[day]!.add(lesson);
       }
     }
@@ -244,6 +263,136 @@ class ScheduleTransferService {
       bellsByDay: bellsByDay,
       aliases: aliases,
     );
+  }
+
+  /// Приводит любую форму дней к карте «номер дня → уроки».
+  ///
+  /// Поддерживаются словари (`{"monday": [...]}`) и массивы
+  /// (`[{"day": "Понедельник", "lessons": [...]}]`).
+  static Map<int, List<dynamic>> _dayEntries(dynamic raw) {
+    final result = <int, List<dynamic>>{};
+
+    void add(int day, List<dynamic> lessons) {
+      if (lessons.isEmpty) {
+        result.putIfAbsent(day, () => <dynamic>[]);
+        return;
+      }
+      result.putIfAbsent(day, () => <dynamic>[]).addAll(lessons);
+    }
+
+    if (raw is Map) {
+      for (final entry in raw.entries) {
+        final day = _dayNumber(entry.key.toString());
+        if (day == null) continue;
+        add(day, _lessonsOf(entry.value));
+      }
+    } else if (raw is List) {
+      for (final item in raw) {
+        if (item is! Map) continue;
+        final key = item['day'] ??
+            item['weekday'] ??
+            item['id'] ??
+            item['name'] ??
+            item['title'];
+        if (key == null) continue;
+        final day = _dayNumber(key.toString());
+        if (day == null) continue;
+        add(
+          day,
+          _lessonsOf(
+            item['lessons'] ?? item['items'] ?? item['subjects'],
+          ),
+        );
+      }
+    }
+
+    return result;
+  }
+
+  static List<dynamic> _lessonsOf(dynamic value) {
+    if (value is List) return value;
+    if (value is Map) {
+      for (final key in const <String>[
+        'lessons',
+        'items',
+        'subjects',
+        'schedule',
+        'list',
+      ]) {
+        final nested = value[key];
+        if (nested is List) return nested;
+      }
+    }
+    return const <dynamic>[];
+  }
+
+  /// Один урок из JSON. `number: null` (РОВ, внеурочка) — валидный случай.
+  static Lesson? _parseLesson(Map<dynamic, dynamic> item, Bell? fallback) {
+    var subject = (item['subject'] ??
+            item['name'] ??
+            item['title'] ??
+            item['lesson'] ??
+            '')
+        .toString()
+        .trim();
+    if (subject.isEmpty) subject = 'Предмет';
+
+    var start = _timeOf(
+      item['start'] ?? item['startTime'] ?? item['begin'] ?? item['from'],
+    );
+    var end = _timeOf(
+      item['end'] ?? item['endTime'] ?? item['finish'] ?? item['to'],
+    );
+
+    final interval = item['time'] ?? item['interval'] ?? item['period'];
+    if ((start == null || end == null) && interval != null) {
+      final parts =
+          interval.toString().split(RegExp(r'\s*[-–—]\s*'));
+      if (parts.length >= 2) {
+        start ??= _timeOf(parts[0]);
+        end ??= _timeOf(parts[1]);
+      }
+    }
+
+    start ??= fallback?.start ?? '08:00';
+    end ??= fallback?.end ?? '08:40';
+
+    final roomRaw = item['room'] ??
+        item['cabinet'] ??
+        item['office'] ??
+        item['classroom'];
+    final room = roomRaw?.toString().trim();
+
+    return Lesson(
+      subject: subject,
+      start: start,
+      end: end,
+      room: room == null || room.isEmpty ? null : room,
+      number: _intOf(
+        item['number'] ?? item['lessonNumber'] ?? item['index'],
+      ),
+    );
+  }
+
+  static String? _timeOf(Object? raw) {
+    if (raw == null) return null;
+    final match = RegExp(r'(\d{1,2})[:.](\d{2})').firstMatch(raw.toString());
+    if (match == null) return null;
+    final hours = int.parse(match.group(1)!);
+    final minutes = int.parse(match.group(2)!);
+    final hour = hours < 0 ? 0 : (hours > 23 ? 23 : hours);
+    final minute = minutes < 0 ? 0 : (minutes > 59 ? 59 : minutes);
+    return '${hour.toString().padLeft(2, '0')}:'
+        '${minute.toString().padLeft(2, '0')}';
+  }
+
+  static int? _intOf(Object? raw) {
+    if (raw == null) return null;
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    final text = raw.toString().trim();
+    if (text.isEmpty) return null;
+    return int.tryParse(text);
   }
 
   static List<Bell> _parseBells(Object? raw) {
@@ -346,10 +495,30 @@ class ScheduleTransferService {
   }
 
   static int? _dayNumber(String raw) {
-    final numeric = int.tryParse(raw);
+    final value = raw.trim().toLowerCase();
+    if (value.isEmpty) return null;
+
+    final numeric = int.tryParse(value);
     if (numeric != null && numeric >= 1 && numeric <= 7) return numeric;
-    final index = _weekdayKeys.indexOf(raw.toLowerCase());
-    return index >= 0 ? index + 1 : null;
+
+    final index = _weekdayKeys.indexOf(value);
+    if (index >= 0) return index + 1;
+
+    final titleIndex =
+        _weekdayTitles.indexWhere((title) => title.toLowerCase() == value);
+    if (titleIndex >= 0) return titleIndex + 1;
+
+    final shortIndex = _weekdayShort.indexOf(value);
+    if (shortIndex >= 0) return shortIndex + 1;
+
+    // «Понедельник, 9 класс» или «Monday — 8A».
+    for (var i = 0; i < _weekdayTitles.length; i++) {
+      if (value.startsWith(_weekdayTitles[i].toLowerCase())) return i + 1;
+    }
+    for (var i = 0; i < _weekdayKeys.length; i++) {
+      if (value.startsWith(_weekdayKeys[i])) return i + 1;
+    }
+    return null;
   }
 
   static int? _dayFromTitle(String line) {
