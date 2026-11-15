@@ -155,12 +155,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Тема раскрывается прямо в карточке — без перехода на другой экран.
+    // Оформление — отдельный экран: тема, язык и навигация.
+    await tester.tap(find.text('Оформление'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Тема'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Тёмная'));
     await tester.pumpAndSettle();
     expect(state.themeMode, ThemeMode.dark);
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
 
     // Данные приложения — отдельный экран, карточка ниже по списку.
     final dataCard = find.text('Данные приложения');
@@ -202,20 +206,25 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Язык раскрывается в самой карточке.
+    // Оформление открывает отдельный экран, где живёт выбор языка.
+    await tester.tap(find.text('Оформление'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Язык'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('English'));
     await tester.pumpAndSettle();
     expect(state.language, AppLanguage.english);
-    expect(find.text('APPEARANCE'), findsOneWidget);
-    expect(find.text('DATA'), findsOneWidget);
+    expect(find.text('Appearance'), findsWidgets);
 
     // Смешанный режим: вкладки английские, содержимое русское.
     await tester.tap(find.text('Mixed'));
     await tester.pumpAndSettle();
     expect(state.language, AppLanguage.mixed);
+
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
     expect(find.text('ОФОРМЛЕНИЕ'), findsOneWidget);
+    expect(find.text('ШКОЛА'), findsOneWidget);
     expect(find.text('Данные приложения'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
 
@@ -316,5 +325,97 @@ void main() {
     await tester.tap(find.byIcon(Icons.check_rounded));
     await tester.pumpAndSettle();
     expect(find.text(label('Расписание', 'Schedule')), findsOneWidget);
+  });
+
+  testWidgets('симуляция дня недели меняет день виджета и расписания', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1290, 2790);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AppState>.value(
+        value: state,
+        child: const SchoolDiaryApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(PillNavBar),
+        matching: find.text('Settings'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Оформление'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Настройки виджета'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Симуляция дня'), findsOneWidget);
+
+    await tester.tap(find.byType(DropdownButton<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Среда').last);
+    await tester.pumpAndSettle();
+
+    expect(state.widgetSimulatedWeekday, DateTime.wednesday);
+    expect(state.nowForDisplay.weekday, DateTime.wednesday);
+
+    // Возврат к системному дню.
+    await tester.tap(find.byType(DropdownButton<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Системный день').last);
+    await tester.pumpAndSettle();
+    expect(state.widgetSimulatedWeekday, isNull);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('сброс расписания очищает уроки, звонки и алиасы', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1290, 2790);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    expect(state.lessonsFor(DateTime.monday), isNotEmpty);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AppState>.value(
+        value: state,
+        child: const SchoolDiaryApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(PillNavBar),
+        matching: find.text('Settings'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Данные приложения'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Сбросить расписание'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Удалить расписание?'), findsOneWidget);
+    await tester.tap(find.text('Удалить'));
+    await tester.pumpAndSettle();
+
+    expect(state.lessonsFor(DateTime.monday), isEmpty);
+    expect(state.schedule.values.every((day) => day.isEmpty), isTrue);
+    expect(state.customAliases, isEmpty);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
   });
 }

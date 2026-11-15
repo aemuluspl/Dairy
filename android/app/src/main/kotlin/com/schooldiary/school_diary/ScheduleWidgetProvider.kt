@@ -232,7 +232,9 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
     private fun scheduleNextUpdate(context: Context) {
         try {
             val payload = ScheduleWidgetData.readPayload(context)
-            if (payload == null || payload.simulatedMinutes != null) {
+            if (payload == null || payload.simulatedMinutes != null ||
+                payload.simulatedWeekday != null
+            ) {
                 cancelUpdate(context)
                 return
             }

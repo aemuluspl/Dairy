@@ -48,6 +48,7 @@ class AppState extends ChangeNotifier {
   bool _showRooms = true;
   NavBarStyle _navBarStyle = NavBarStyle.classic;
   String? _widgetSimulatedTime;
+  int? _widgetSimulatedWeekday;
   bool _saturdayOff = false;
   List<HolidayPeriod> _holidays = <HolidayPeriod>[];
   bool _updateAvailable = false;
@@ -75,6 +76,42 @@ class AppState extends ChangeNotifier {
   bool get showRooms => _showRooms;
   NavBarStyle get navBarStyle => _navBarStyle;
   String? get widgetSimulatedTime => _widgetSimulatedTime;
+  int? get widgetSimulatedWeekday => _widgetSimulatedWeekday;
+
+  /// Время отрисовки расписания и виджета. Отладочная симуляция дня или
+  /// времени подменяет системные часы, не трогая остальные данные.
+  DateTime get nowForDisplay {
+    var now = DateTime.now();
+    final weekday = _widgetSimulatedWeekday;
+    if (weekday != null && weekday != now.weekday) {
+      now = DateTime(
+        now.year,
+        now.month,
+        now.day + (weekday - now.weekday),
+        now.hour,
+        now.minute,
+        now.second,
+        now.millisecond,
+        now.microsecond,
+      );
+    }
+    final simulated = _widgetSimulatedTime;
+    if (simulated != null) {
+      final parts = simulated.split(':');
+      final hours = parts.isNotEmpty ? int.tryParse(parts[0]) : null;
+      final minutes = parts.length > 1 ? int.tryParse(parts[1]) : null;
+      if (hours != null &&
+          minutes != null &&
+          hours >= 0 &&
+          hours <= 23 &&
+          minutes >= 0 &&
+          minutes <= 59) {
+        return DateTime(now.year, now.month, now.day, hours, minutes);
+      }
+    }
+    return now;
+  }
+
   bool get saturdayOff => _saturdayOff;
   List<HolidayPeriod> get holidays =>
       List<HolidayPeriod>.unmodifiable(_holidays);
@@ -141,6 +178,7 @@ class AppState extends ChangeNotifier {
     _showRooms = settingsRepository.loadShowRooms();
     _navBarStyle = settingsRepository.loadNavBarStyle();
     _widgetSimulatedTime = settingsRepository.loadWidgetSimulatedTime();
+    _widgetSimulatedWeekday = settingsRepository.loadWidgetSimulatedWeekday();
     _saturdayOff = settingsRepository.loadSaturdayOff();
     _holidays = settingsRepository.loadHolidays();
     _latestVersion = settingsRepository.loadLatestVersion();
@@ -275,13 +313,25 @@ class AppState extends ChangeNotifier {
 
   /// Отладочное время нативного виджета. `null` — системное время.
   Future<void> setWidgetSimulatedTime(String? value) async {
-    final normalized = (value == null || value.trim().isEmpty)
-        ? null
-        : value.trim();
+    final normalized =
+        (value == null || value.trim().isEmpty) ? null : value.trim();
     if (_widgetSimulatedTime == normalized) return;
     _widgetSimulatedTime = normalized;
     notifyListeners();
     await settingsRepository.saveWidgetSimulatedTime(normalized);
+    unawaited(_syncWidget());
+  }
+
+  /// Отладочный день недели нативного виджета. `null` — системный день.
+  Future<void> setWidgetSimulatedWeekday(int? value) async {
+    final normalized =
+        (value == null || value < DateTime.monday || value > DateTime.sunday)
+            ? null
+            : value;
+    if (_widgetSimulatedWeekday == normalized) return;
+    _widgetSimulatedWeekday = normalized;
+    notifyListeners();
+    await settingsRepository.saveWidgetSimulatedWeekday(normalized);
     unawaited(_syncWidget());
   }
 
@@ -455,6 +505,22 @@ class AppState extends ChangeNotifier {
     return _schedule.values.fold<int>(0, (sum, day) => sum + day.length);
   }
 
+  /// Полностью очищает локальную базу расписания: уроки, звонки и алиасы.
+  /// Пользователь подтверждает действие дважды, поэтому метод не спрашивает
+  /// ничего сам — только выполняет обещанное.
+  Future<void> resetSchedule() async {
+    _schedule = <int, List<Lesson>>{};
+    _dayBells = <int, List<Bell>>{};
+    _customAliases = <String, List<String>>{};
+    _rebuildResolver();
+    notifyListeners();
+    await scheduleRepository.saveSchedule(_schedule);
+    await scheduleRepository.saveAliases(_customAliases);
+    await scheduleRepository.saveBells(_dayBells);
+    AppLog.instance.info('Расписание, звонки и алиасы очищены');
+    unawaited(_syncWidget());
+  }
+
   /// Возвращает задачи из последней резервной копии.
   Future<int> restoreBackup() async {
     final backup = backupRepository.loadLatest();
@@ -497,6 +563,7 @@ class AppState extends ChangeNotifier {
       dark: dark,
       english: _language == AppLanguage.english,
       simulatedTime: _widgetSimulatedTime,
+      simulatedWeekday: _widgetSimulatedWeekday,
     );
   }
 

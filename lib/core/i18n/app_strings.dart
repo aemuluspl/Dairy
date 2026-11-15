@@ -198,6 +198,11 @@ class Strings {
   String get settingsTitle => _t('Настройки', 'Settings');
 
   // Главное меню настроек.
+  String get settingsAppearance => _t('Оформление', 'Appearance');
+  String get settingsAppearanceSubtitle =>
+      _t('Тема, язык и навигация', 'Theme, language and navigation');
+  String get schoolSection => _t('ШКОЛА', 'SCHOOL');
+  String get widgetSection => _t('ВИДЖЕТ', 'WIDGET');
   String get themeTitle => _t('Тема', 'Theme');
   String get navBarTitle => _t('Стиль навигации', 'Navigation style');
   String get navBarClassic => _t('Классический', 'Classic');
@@ -239,13 +244,20 @@ class Strings {
   String updateLastCheck(String at) => _t('Проверено: $at', 'Checked: $at');
 
   // Виджет.
-  String get widgetSimulationTitle => _t('Симуляция времени', 'Time simulation');
+  String get widgetSimulationTitle =>
+      _t('Симуляция времени', 'Time simulation');
   String get widgetSimulationHint => _t(
         'Виджет возьмёт это время вместо системного',
         'The widget uses this time instead of the system clock',
       );
   String get widgetSimulationOff => _t('Системное время', 'System time');
   String get widgetSimulationReset => _t('Сбросить', 'Reset');
+  String get widgetWeekdayTitle => _t('Симуляция дня', 'Day simulation');
+  String get widgetWeekdayHint => _t(
+        'Виджет и расписание откроют выбранный день',
+        'The widget and schedule will open the selected day',
+      );
+  String get widgetWeekdaySystem => _t('Системный день', 'System day');
   String get appearance => _t('ОФОРМЛЕНИЕ', 'APPEARANCE');
   String get themeLight => _t('Светлая', 'Light');
   String get themeDark => _t('Тёмная', 'Dark');
@@ -263,6 +275,17 @@ class Strings {
         'Hide them all at once or clear the room for a single lesson',
       );
   String get dataSection => _t('ДАННЫЕ', 'DATA');
+  String get wipeSchedule => _t('Сбросить расписание', 'Reset schedule');
+  String get wipeScheduleHint => _t(
+        'Удалить все уроки, звонки и алиасы',
+        'Delete all lessons, bells and aliases',
+      );
+  String get wipeScheduleTitle => _t('Удалить расписание?', 'Delete schedule?');
+  String get wipeScheduleMessage => _t(
+        'Все уроки, звонки и алиасы будут удалены. Отменить это действие нельзя.',
+        'All lessons, bells and aliases will be deleted. This can’t be undone.',
+      );
+  String get wipeScheduleDone => _t('Расписание очищено', 'Schedule cleared');
   String get backupTitle => _t('Резервная копия', 'Backup');
   String get backupNever => _t('Копий пока нет', 'No backups yet');
   String backupUpdatedAt(String at) => _t('Обновлено: $at', 'Updated: $at');

@@ -12,6 +12,7 @@ class SettingsRepository {
   static const String _showRoomsKey = 'showRooms';
   static const String _navBarStyleKey = 'navBarStyle';
   static const String _widgetSimulatedTimeKey = 'widgetSimulatedTime';
+  static const String _widgetSimulatedWeekdayKey = 'widgetSimulatedWeekday';
   static const String _holidaysKey = 'holidays';
   static const String _saturdayOffKey = 'saturdayOff';
   static const String _latestVersionKey = 'latestVersion';
@@ -64,6 +65,23 @@ class SettingsRepository {
       return;
     }
     await _box.put(_widgetSimulatedTimeKey, value);
+  }
+
+  /// Отладочный день недели нативного виджета: 1–7 или `null`.
+  int? loadWidgetSimulatedWeekday() {
+    final value = _box.get(_widgetSimulatedWeekdayKey);
+    if (value is int && value >= DateTime.monday && value <= DateTime.sunday) {
+      return value;
+    }
+    return null;
+  }
+
+  Future<void> saveWidgetSimulatedWeekday(int? value) async {
+    if (value == null) {
+      await _box.delete(_widgetSimulatedWeekdayKey);
+      return;
+    }
+    await _box.put(_widgetSimulatedWeekdayKey, value);
   }
 
   bool loadSaturdayOff() => _box.get(_saturdayOffKey) as bool? ?? false;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/utils/date_text.dart';
 import '../../state/app_state.dart';
 import 'settings_common.dart';
 
@@ -67,8 +68,8 @@ class WidgetSettingsScreen extends StatelessWidget {
                               child: _TimeDrum(
                                 hour: simulated.hour,
                                 minute: simulated.minute,
-                                onChanged: (time) => state
-                                    .setWidgetSimulatedTime(_format(time)),
+                                onChanged: (time) =>
+                                    state.setWidgetSimulatedTime(_format(time)),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -89,6 +90,106 @@ class WidgetSettingsScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          SettingsCard(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: palette.accentSoft,
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(
+                        Icons.today_rounded,
+                        size: 19,
+                        color: palette.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            strings.widgetWeekdayTitle,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: palette.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            strings.widgetWeekdayHint,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              height: 1.3,
+                              fontWeight: FontWeight.w600,
+                              color: palette.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: palette.chip,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      isExpanded: true,
+                      isDense: true,
+                      value: state.widgetSimulatedWeekday ?? 0,
+                      borderRadius: BorderRadius.circular(16),
+                      dropdownColor: palette.card,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      icon: Icon(
+                        Icons.expand_more_rounded,
+                        size: 20,
+                        color: palette.textMuted,
+                      ),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: palette.textPrimary,
+                      ),
+                      items: <DropdownMenuItem<int>>[
+                        DropdownMenuItem<int>(
+                          value: 0,
+                          child: Text(strings.widgetWeekdaySystem),
+                        ),
+                        for (var day = DateTime.monday;
+                            day <= DateTime.sunday;
+                            day++)
+                          DropdownMenuItem<int>(
+                            value: day,
+                            child: Text(
+                              capitalizeFirst(
+                                weekdayFull(day, english: strings.isEnglish),
+                              ),
+                            ),
+                          ),
+                      ],
+                      onChanged: (value) => state.setWidgetSimulatedWeekday(
+                        value == 0 ? null : value,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),

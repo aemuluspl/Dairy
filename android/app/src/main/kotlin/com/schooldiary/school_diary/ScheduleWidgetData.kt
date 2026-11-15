@@ -36,6 +36,7 @@ object ScheduleWidgetData {
         val dark: Boolean,
         val english: Boolean,
         val simulatedMinutes: Int?,
+        val simulatedWeekday: Int?,
     )
 
     enum class RowStyle { PAST, CURRENT, NEXT, NORMAL, BREAK }
@@ -87,7 +88,8 @@ object ScheduleWidgetData {
         }
 
         val calendar = Calendar.getInstance()
-        val day = dartDayOf(calendar)
+        // Отладочная симуляция дня важнее системного дня недели.
+        val day = payload.simulatedWeekday ?: dartDayOf(calendar)
         val systemMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 +
             calendar.get(Calendar.MINUTE)
         // Отладочная симуляция времени важнее системных часов.
@@ -221,6 +223,8 @@ object ScheduleWidgetData {
                 simulatedMinutes = parseTimeOrNull(
                     root.optString("simulatedTime", ""),
                 ),
+                simulatedWeekday = root.optInt("simulatedWeekday", 0)
+                    .takeIf { it in 1..7 },
             )
         } catch (_: Throwable) {
             null

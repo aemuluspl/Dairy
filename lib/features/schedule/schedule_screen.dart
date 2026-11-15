@@ -37,7 +37,7 @@ class ScheduleScreen extends StatelessWidget {
   Widget _buildContent(BuildContext context) {
     final state = context.watch<AppState>();
     final strings = state.strings;
-    final now = DateTime.now();
+    final now = state.nowForDisplay;
     final marks = resolveDayMarks(
       now,
       state.schedule,

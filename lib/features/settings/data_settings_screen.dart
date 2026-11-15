@@ -105,6 +105,42 @@ class DataSettingsScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _wipeSchedule(BuildContext context, AppState state) async {
+    final strings = state.strings;
+    final palette = context.palette;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(strings.wipeScheduleTitle),
+        content: Text(strings.wipeScheduleMessage),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: palette.danger,
+              foregroundColor: palette.onAccent,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(strings.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    await state.resetSchedule();
+    if (!context.mounted) return;
+    showAppSnackBar(
+      context,
+      strings.wipeScheduleDone,
+      icon: Icons.delete_sweep_rounded,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -179,6 +215,40 @@ class DataSettingsScreen extends StatelessWidget {
                     MaterialPageRoute<void>(
                       builder: (_) => const LogsScreen(),
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: palette.danger,
+              foregroundColor: palette.onAccent,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            onPressed: () => _wipeSchedule(context, state),
+            icon: const Icon(Icons.delete_sweep_rounded, size: 20),
+            label: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  strings.wipeSchedule,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  strings.wipeScheduleHint,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: palette.onAccent.withValues(alpha: 0.8),
                   ),
                 ),
               ],
