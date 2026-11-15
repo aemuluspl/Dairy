@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_radii.dart';
 import '../../core/utils/max_width_box.dart';
 import '../../widgets/top_bar.dart';
 
@@ -57,7 +58,7 @@ class SettingsCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
 
-  static const double radius = 16;
+  static const double radius = AppRadii.card;
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +123,9 @@ class SettingsMenuTile extends StatelessWidget {
     final palette = context.palette;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.card),
+      ),
       onTap: onTap,
       leading: Stack(
         clipBehavior: Clip.none,
@@ -224,7 +227,27 @@ class SettingsExpandableCard extends StatefulWidget {
 class _SettingsExpandableCardState extends State<SettingsExpandableCard> {
   bool _expanded = false;
 
-  void _toggle() => setState(() => _expanded = !_expanded);
+  /// Контент монтируется на кадр раньше, чем начинается затухание:
+  /// так AnimatedOpacity успевает проиграть появление вместе с высотой.
+  bool _visible = false;
+
+  void _toggle() {
+    if (_expanded) {
+      setState(() {
+        _expanded = false;
+        _visible = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _expanded = true;
+      _visible = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _visible = true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -295,16 +318,27 @@ class _SettingsExpandableCardState extends State<SettingsExpandableCard> {
                 ),
               ),
             ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              alignment: Alignment.topCenter,
-              child: _expanded
-                  ? Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                      child: widget.child,
-                    )
-                  : const SizedBox(width: double.infinity, height: 0),
+            ClipRRect(
+              // Маска обёрнута вокруг AnimatedSize, поэтому радиус всегда
+              // применяется к текущей (анимированной) высоте: нижние углы
+              // не становятся прямыми ни на одном кадре.
+              borderRadius: BorderRadius.circular(AppRadii.card),
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: _expanded
+                    ? AnimatedOpacity(
+                        opacity: _visible ? 1 : 0,
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          child: widget.child,
+                        ),
+                      )
+                    : const SizedBox(width: double.infinity, height: 0),
+              ),
             ),
           ],
         ),
@@ -383,7 +417,7 @@ class _Choice<T> extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
         decoration: BoxDecoration(
           color: selected ? palette.accent : palette.chip,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.chip),
         ),
         child: Column(
           children: <Widget>[

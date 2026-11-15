@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Одна строка списка уроков в виджете. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_item_root"
+    style="@style/WidgetRow">
+
+    <TextView
+        android:id="@+id/widget_item_number"
+        style="@style/WidgetRowNumber" />
+
+    <View
+        android:id="@+id/widget_item_stripe"
+        style="@style/WidgetRowStripe" />
+
+    <TextView
+        android:id="@+id/widget_item_name"
+        style="@style/WidgetRowName" />
+
+    <TextView
+        android:id="@+id/widget_item_time"
+        style="@style/WidgetRowTime" />
+</LinearLayout>

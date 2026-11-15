@@ -33,8 +33,10 @@ class SchoolDiaryApp extends StatelessWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: state.themeMode,
-      themeAnimationDuration: const Duration(milliseconds: 320),
-      themeAnimationCurve: Curves.easeOutCubic,
+      // MaterialApp проводит смену темы через собственный AnimatedTheme:
+      // палитра (включая AppPalette.lerp) перетекает, а не переключается.
+      themeAnimationDuration: const Duration(milliseconds: 420),
+      themeAnimationCurve: Curves.easeInOutCubic,
       // Системные панели прозрачные: приложение рисует фон само,
       // поэтому под нижней панелью не появляется чёрная полоса.
       builder: (context, child) {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_palette.dart';
 import '../../state/app_state.dart';
+import '../../widgets/app_input.dart';
 import '../../widgets/app_snackbar.dart';
 import 'settings_common.dart';
 
@@ -32,39 +33,12 @@ class AliasesSettingsScreen extends StatelessWidget {
             strings.aliasesEditTitle(subject),
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
           ),
-          content: TextField(
+          content: AppInputField(
             controller: controller,
             autofocus: true,
             minLines: 1,
             maxLines: 3,
-            textCapitalization: TextCapitalization.none,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: palette.textPrimary,
-            ),
-            decoration: InputDecoration(
-              labelText: strings.aliasesField,
-              labelStyle: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: palette.textMuted,
-              ),
-              filled: true,
-              fillColor: palette.background,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: palette.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: palette.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: palette.accent),
-              ),
-            ),
+            label: strings.aliasesField,
           ),
           actions: <Widget>[
             TextButton(

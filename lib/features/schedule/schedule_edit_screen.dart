@@ -8,6 +8,7 @@ import '../../core/utils/max_width_box.dart';
 import '../../data/models/bell.dart';
 import '../../data/models/lesson.dart';
 import '../../state/app_state.dart';
+import '../../widgets/app_input.dart';
 import '../../widgets/soft_chip.dart';
 import '../../widgets/time_wheel_picker.dart';
 import '../../widgets/top_bar.dart';
@@ -1010,42 +1011,11 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    return TextField(
+    return AppInputField(
       controller: controller,
       autofocus: autofocus,
+      label: label,
       textCapitalization: TextCapitalization.sentences,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: palette.textPrimary,
-      ),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: palette.textMuted,
-        ),
-        filled: true,
-        fillColor: palette.background,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: palette.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: palette.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: palette.accent),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
-      ),
     );
   }
 }

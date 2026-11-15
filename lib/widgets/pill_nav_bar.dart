@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/theme/app_palette.dart';
+import '../core/theme/app_radii.dart';
 import '../data/models/nav_bar_style.dart';
 
 class PillNavBar extends StatelessWidget {
@@ -39,7 +40,7 @@ class PillNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final glass = style == NavBarStyle.liquidGlass;
-    final radius = BorderRadius.circular(28);
+    final radius = BorderRadius.circular(AppRadii.navBar);
 
     final content = Padding(
       padding: const EdgeInsets.all(6),
@@ -60,7 +61,13 @@ class PillNavBar extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 2),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: palette.accent,
+                      // В стеклянном режиме капсула тоже стекло: сквозь неё
+                      // виден размытый контент, а не плотная заливка.
+                      color: glass
+                          ? (context.isDark
+                              ? Colors.white.withValues(alpha: 0.15)
+                              : Colors.black.withValues(alpha: 0.08))
+                          : palette.accent,
                       borderRadius: BorderRadius.circular(22),
                     ),
                   ),
@@ -73,6 +80,7 @@ class PillNavBar extends StatelessWidget {
                       child: _NavButton(
                         data: _items[index],
                         selected: currentIndex == index,
+                        glass: glass,
                         badge:
                             showSettingsBadge && index == _items.length - 1,
                         onTap: () {
@@ -106,16 +114,18 @@ class PillNavBar extends StatelessWidget {
                     borderRadius: radius,
                     child: BackdropFilter(
                       filter: ImageFilter.blur(
-                        sigmaX: 34,
-                        sigmaY: 34,
+                        sigmaX: 20,
+                        sigmaY: 20,
                         tileMode: TileMode.decal,
                       ),
+                      // Подложка почти прозрачная: чем меньше заливки,
+                      // тем заметнее размытый контент под стеклом.
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: palette.card.withValues(alpha: 0.52),
+                          color: palette.card.withValues(alpha: 0.28),
                           borderRadius: radius,
                           border: Border.all(
-                            color: palette.border.withValues(alpha: 0.55),
+                            color: palette.border.withValues(alpha: 0.45),
                           ),
                         ),
                         child: content,
@@ -148,12 +158,14 @@ class _NavButton extends StatelessWidget {
   const _NavButton({
     required this.data,
     required this.selected,
+    required this.glass,
     required this.onTap,
     this.badge = false,
   });
 
   final _NavItemData data;
   final bool selected;
+  final bool glass;
   final VoidCallback onTap;
   final bool badge;
 
@@ -174,7 +186,8 @@ class _NavButton extends StatelessWidget {
           curve: Curves.easeOutCubic,
           builder: (context, t, _) {
             // Плавный переход цвета вместо резкого перекрашивания.
-            final color = Color.lerp(palette.textMuted, palette.onAccent, t)!;
+            final active = glass ? palette.textPrimary : palette.onAccent;
+            final color = Color.lerp(palette.textMuted, active, t)!;
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 9),
               child: Column(
@@ -198,8 +211,11 @@ class _NavButton extends StatelessWidget {
                                 color: palette.danger,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color:
-                                      selected ? palette.accent : palette.card,
+                                  color: selected
+                                      ? (glass
+                                          ? palette.card.withValues(alpha: 0.9)
+                                          : palette.accent)
+                                      : palette.card,
                                   width: 1.2,
                                 ),
                               ),

@@ -27,6 +27,9 @@ class _HomeShellState extends State<HomeShell> {
   /// игнорируются — иначе капсула «металась» бы по промежуточным страницам.
   bool _isAnimatingByTap = false;
 
+  /// Номер последнего перехода: быстрые тапы перебивают предыдущий.
+  int _flight = 0;
+
   static const List<Widget> _pages = <Widget>[
     InboxScreen(),
     TasksScreen(),
@@ -64,32 +67,49 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _select(int index) async {
-    if (index == _currentIndex || _isAnimatingByTap) return;
+    // Тап по уже активной вкладке ничего не делает.
+    if (index == _currentIndex) return;
     FocusManager.instance.primaryFocus?.unfocus();
 
-    final currentPage = _pageController.hasClients
-        ? (_pageController.page ?? (_basePage + _currentIndex).toDouble())
-            .round()
-        : _basePage + _currentIndex;
-
-    var delta = index - _currentIndex;
-    if (delta > _pageCount ~/ 2) delta -= _pageCount;
-    if (delta < -(_pageCount ~/ 2)) delta += _pageCount;
-
+    // Индекс обновляется ДО анимации: капсула и иконка отзываются сразу,
+    // а страница догоняет их плавным перелистыванием.
     setState(() {
-      _isAnimatingByTap = true;
       _currentIndex = index;
+      _isAnimatingByTap = true;
     });
 
+    final flight = ++_flight;
     try {
       await _pageController.animateToPage(
-        currentPage + delta,
-        duration: const Duration(milliseconds: 320),
+        _targetPage(index),
+        duration: const Duration(milliseconds: 280),
         curve: Curves.easeOutCubic,
       );
-    } finally {
-      if (mounted) _isAnimatingByTap = false;
+    } catch (_) {
+      // Контроллер мог быть уничтожен вместе с экраном.
     }
+
+    // Быстрый повторный тап мог перебить этот переход — тогда флаг
+    // останется включённым до завершения последнего.
+    if (!mounted || flight != _flight) return;
+    _isAnimatingByTap = false;
+  }
+
+  /// Ближайшая страница с нужным индексом вкладки.
+  ///
+  /// Если пользователь тапает повторно посреди анимации, просто
+  /// `текущая + дельта` увела бы не туда: считаем от ближайшей страницы.
+  int _targetPage(int index) {
+    if (!_pageController.hasClients) return _basePage + index;
+
+    final current = (_pageController.page ??
+            (_basePage + _currentIndex).toDouble())
+        .round();
+    final currentIndex = current % _pageCount;
+    var delta = index - currentIndex;
+    if (delta > _pageCount ~/ 2) delta -= _pageCount;
+    if (delta < -(_pageCount ~/ 2)) delta += _pageCount;
+    return current + delta;
   }
 
   void _handlePageChanged(int page) {

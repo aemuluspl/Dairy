@@ -6,6 +6,7 @@ import '../../core/i18n/app_strings.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/date_text.dart';
 import '../../state/app_state.dart';
+import '../../widgets/app_input.dart';
 import '../../widgets/app_snackbar.dart';
 import '../logs/logs_screen.dart';
 import 'settings_common.dart';
@@ -227,39 +228,18 @@ class _ImportDialogState extends State<_ImportDialog> {
       ),
       content: SizedBox(
         width: double.maxFinite,
-        child: TextField(
+        child: AppInputField(
           controller: _controller,
           minLines: 6,
           maxLines: 10,
           autocorrect: false,
           enableSuggestions: false,
+          hintText: widget.strings.transferImportHint,
           style: TextStyle(
             fontSize: 12.5,
-            height: 1.35,
+            height: 1.4,
             fontWeight: FontWeight.w600,
             color: palette.textPrimary,
-          ),
-          decoration: InputDecoration(
-            hintText: widget.strings.transferImportHint,
-            hintStyle: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: palette.textMuted,
-            ),
-            filled: true,
-            fillColor: palette.background,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: palette.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: palette.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: palette.accent),
-            ),
           ),
         ),
       ),
