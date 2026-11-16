@@ -1,22 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Одна строка списка уроков в виджете. -->
+<!--
+  Одна строка списка уроков в виджете. Все атрибуты заданы явно:
+  RemoteViews в лаунчере не должен зависеть от разрешения app-стилей.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_item_root"
-    style="@style/WidgetRow">
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:minHeight="26dp"
+    android:paddingStart="8dp"
+    android:paddingEnd="10dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
 
     <TextView
         android:id="@+id/widget_item_number"
-        style="@style/WidgetRowNumber" />
+        android:layout_width="16dp"
+        android:layout_height="wrap_content"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
+        android:textColor="@color/widget_text_muted"
+        android:maxLines="1"
+        android:visibility="gone" />
 
-    <View
+    <TextView
         android:id="@+id/widget_item_stripe"
-        style="@style/WidgetRowStripe" />
+        android:layout_width="3dp"
+        android:layout_height="22dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/widget_stripe_light" />
 
     <TextView
         android:id="@+id/widget_item_name"
-        style="@style/WidgetRowName" />
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
+        android:textColor="@color/widget_text_primary"
+        android:maxLines="1"
+        android:ellipsize="end" />
 
     <TextView
         android:id="@+id/widget_item_time"
-        style="@style/WidgetRowTime" />
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:textSize="10.5sp"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_muted"
+        android:maxLines="1" />
 </LinearLayout>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Аварийная строка списка виджета. Используется только если сборка
+  обычной строки урока упала: лаунчер не должен показывать системное
+  «Couldn't add widget» вместо элемента расписания.
+-->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/error_text"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:minHeight="26dp"
+    android:paddingStart="8dp"
+    android:paddingEnd="10dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp"
+    android:text="Error"
+    android:textColor="@color/widget_text_muted"
+    android:textSize="11sp"
+    android:textStyle="bold"
+    android:fontFamily="sans-serif-medium"
+    android:maxLines="1"
+    android:ellipsize="end" />

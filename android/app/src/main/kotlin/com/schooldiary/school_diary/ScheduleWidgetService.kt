@@ -56,16 +56,33 @@ class ScheduleWidgetFactory(
 
     override fun getCount(): Int = snapshot.rows.size
 
+    /**
+     * Каждая строка собирается внутри try/catch: любая ошибка маппинга
+     * возвращает валидный RemoteViews с текстом «Error», иначе лаунчер
+     * показывает системное «Couldn't add widget» на каждом элементе.
+     */
     override fun getViewAt(position: Int): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.schedule_widget_item)
-
         return try {
             val rows = snapshot.rows
-            if (position !in rows.indices) return views
+            if (position !in rows.indices) return errorViews()
+
+            val views = RemoteViews(context.packageName, R.layout.schedule_widget_item)
             bind(views, rows[position])
             views
+        } catch (e: Exception) {
+            errorViews()
+        }
+    }
+
+    /** Безопасная строка-заглушка для сбойного элемента списка. */
+    private fun errorViews(): RemoteViews {
+        return try {
+            RemoteViews(context.packageName, R.layout.widget_error_item).apply {
+                setTextViewText(R.id.error_text, "Error")
+            }
         } catch (_: Throwable) {
-            views
+            // Последний рубеж: даже простая TextView-разметка недоступна.
+            RemoteViews(context.packageName, R.layout.widget_error_item)
         }
     }
 
@@ -82,7 +99,7 @@ class ScheduleWidgetFactory(
         )
 
         val isBreak = row.style == ScheduleWidgetData.RowStyle.BREAK
-        val hasNumber = !isBreak && row.number != null
+        val number = row.number
 
         views.setViewVisibility(
             R.id.widget_item_name,
@@ -99,12 +116,10 @@ class ScheduleWidgetFactory(
             views.setTextColor(R.id.widget_item_time, timeColor)
         }
 
-        if (hasNumber) {
+        // number приходит из JSON как null у уроков вроде РОВ.
+        if (!isBreak && number != null) {
             views.setViewVisibility(R.id.widget_item_number, View.VISIBLE)
-            views.setTextViewText(
-                R.id.widget_item_number,
-                row.number?.toString().orEmpty(),
-            )
+            views.setTextViewText(R.id.widget_item_number, number.toString())
             views.setTextColor(R.id.widget_item_number, timeColor)
         } else {
             views.setViewVisibility(R.id.widget_item_number, View.GONE)
