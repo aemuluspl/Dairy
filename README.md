@@ -507,8 +507,12 @@ Hive), используйте **Hot Restart** (`R`).
 - Settings → «ЭКСПЕРИМЕНТ» → «Тест Капли» запускает нативный сервис через
   `MethodChannel('hash/capsule_test')`.
 - `CapsuleTestService` держит foreground-уведомление с таймером на 10 минут:
-  `setOngoing(true)`, `CATEGORY_PROGRESS`, extra `android.requestPromotedOngoing`,
-  `Notification.ProgressStyle` и `setShortCriticalText` на API 36.
+  `setOngoing(true)`, `setColorized(true)`, `CATEGORY_PROGRESS`, extra
+  `android.requestPromotedOngoing`, `Notification.ProgressStyle` и
+  `setShortCriticalText` на API 36.
+- Секунды считает системный `Chronometer` (`setWhen(endsAt)` +
+  `setUsesChronometer` + `setChronometerCountDown`): уведомление публикуется
+  один раз, без ежесекундных `notify()`, поэтому таймер не мерцает.
 - Каплю в статус-баре рисует только Android 16 при включённых promoted
   notifications; на остальных версиях остаётся обычное постоянное уведомление.
 - «Остановить» в карточке или в самом уведомлении завершает сервис.

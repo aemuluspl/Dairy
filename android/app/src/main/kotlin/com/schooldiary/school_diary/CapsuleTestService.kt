@@ -13,34 +13,28 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Эксперимент «Капля» (Android 16 Live Updates / promoted notifications).
  *
- * Сервис держит постоянное (`FLAG_ONGOING_EVENT`) уведомление с обратным
- * отсчётом и просит систему показать его в статус-баре как live update:
- * `Notification.ProgressStyle`, `setShortCriticalText` и extra
- * `android.requestPromotedOngoing`.
+ * Таймер полностью нативный: уведомление публикуется **один раз**, а секунды
+ * рисует системный `Chronometer` (`setUsesChronometer` + `setChronometerCountDown`
+ * + база `setWhen(endsAt)`). Сервис больше не вызывает `notify()` каждую
+ * секунду, поэтому текстовый блок не перерисовывается и не мерцает.
  *
  * Ветка экспериментальная: сервис запускается только кнопкой «Тест Капли»
- * в настройках и не используется основным сценарием приложения.
+ * в настройках.
  */
 class CapsuleTestService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var endsAt: Long = 0L
 
-    private val ticker = object : Runnable {
-        override fun run() {
-            val remaining = remainingSeconds()
-            if (remaining <= 0L) {
-                stopSelf()
-                return
-            }
-            publish(remaining)
-            handler.postDelayed(this, TICK_MILLIS)
-        }
-    }
+    /** Единственная отложенная задача: остановить сервис в конце отсчёта. */
+    private val finish = Runnable { stopSelf() }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -49,17 +43,23 @@ class CapsuleTestService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        if (endsAt <= System.currentTimeMillis()) {
-            endsAt = System.currentTimeMillis() + DURATION_MILLIS
+
+        val now = System.currentTimeMillis()
+        if (endsAt <= now) {
+            endsAt = now + DURATION_MILLIS
         }
-        startInForeground(remainingSeconds())
-        handler.removeCallbacks(ticker)
-        handler.postDelayed(ticker, TICK_MILLIS)
+
+        // Одна публикация: дальше уведомление живёт само, время анимирует
+        // система. Повторный notify() здесь не нужен и вреден.
+        startInForeground()
+
+        handler.removeCallbacks(finish)
+        handler.postDelayed(finish, (endsAt - now).coerceAtLeast(0L))
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
-        handler.removeCallbacks(ticker)
+        handler.removeCallbacks(finish)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
@@ -69,13 +69,8 @@ class CapsuleTestService : Service() {
         super.onDestroy()
     }
 
-    private fun remainingSeconds(): Long {
-        val left = endsAt - System.currentTimeMillis()
-        return (left / 1000L).coerceAtLeast(0L)
-    }
-
-    private fun startInForeground(remaining: Long) {
-        val notification = buildNotification(remaining)
+    private fun startInForeground() {
+        val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIFICATION_ID,
@@ -87,18 +82,8 @@ class CapsuleTestService : Service() {
         }
     }
 
-    /** Обновление таймера не должно ронять сервис. */
-    private fun publish(remaining: Long) {
-        try {
-            notificationManager().notify(NOTIFICATION_ID, buildNotification(remaining))
-        } catch (_: Throwable) {
-            // Уведомление могло быть заблокировано пользователем.
-        }
-    }
-
-    private fun buildNotification(remaining: Long): Notification {
+    private fun buildNotification(): Notification {
         ensureChannel(notificationManager())
-        val elapsed = (DURATION_SECONDS - remaining).coerceIn(0L, DURATION_SECONDS)
 
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
@@ -110,56 +95,52 @@ class CapsuleTestService : Service() {
         builder
             .setSmallIcon(R.drawable.ic_capsule_test)
             .setContentTitle(getString(R.string.capsule_title))
-            .setContentText(getString(R.string.capsule_remaining, formatTime(remaining)))
+            .setContentText(getString(R.string.capsule_until, endTime()))
             .setSubText(getString(R.string.capsule_subtitle))
             .setColor(ACCENT)
+            // Без colorized система не считает уведомление кандидатом
+            // в каплю: hasPromotableCharacteristics() требует
+            // isColorizedRequested() && isOngoingEvent() && hasTitle().
+            .setColorized(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setAutoCancel(false)
             .setCategory(Notification.CATEGORY_PROGRESS)
             .setShowWhen(true)
-            .setWhen(System.currentTimeMillis() + remaining * 1000L)
+            // База Chronometer — время окончания, а не старта.
+            .setWhen(endsAt)
             .setUsesChronometer(true)
             .setContentIntent(contentIntent())
             .addExtras(promotionExtras())
             .addAction(stopAction())
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            // Обратный отсчёт: системный Chronometer сам плавно
+            // уменьшает секунды без участия приложения.
             builder.setChronometerCountDown(true)
         }
 
-        // Android 16: прогресс-стиль и короткий текст в капсуле.
         if (Build.VERSION.SDK_INT >= 36) {
-            progressStyle(elapsed)?.let { style -> builder.setStyle(style) }
-            builder.setShortCriticalText(formatTime(remaining))
+            progressStyle()?.let { style -> builder.setStyle(style) }
+            // Статичный короткий текст капсулы: время окончания.
+            builder.setShortCriticalText(endTime())
         }
 
         return builder.build()
     }
 
     /**
-     * `Notification.ProgressStyle` — обязательная часть live update:
-     * по нему система рисует полосу прогресса в капсуле и шторке.
+     * Полоса прогресса анимируется системой (indeterminate), поэтому
+     * приложению не нужно присылать обновления ради её движения.
+     * Стиль при этом остаётся `ProgressStyle` — он входит в
+     * `hasPromotableStyle()`.
      */
-    private fun progressStyle(elapsed: Long): Notification.ProgressStyle? {
+    private fun progressStyle(): Notification.ProgressStyle? {
         if (Build.VERSION.SDK_INT < 36) return null
-        val total = DURATION_SECONDS.toInt()
         return try {
             Notification.ProgressStyle()
-                .setStyledByProgress(true)
-                .setProgress(elapsed.toInt().coerceIn(0, total))
-                .setProgressSegments(
-                    listOf(
-                        Notification.ProgressStyle.Segment(total).setColor(ACCENT),
-                    ),
-                )
-                .setProgressPoints(
-                    listOf(
-                        Notification.ProgressStyle.Point(total / 4).setColor(POINT),
-                        Notification.ProgressStyle.Point(total / 2).setColor(POINT),
-                        Notification.ProgressStyle.Point(total * 3 / 4).setColor(POINT),
-                    ),
-                )
+                .setStyledByProgress(false)
+                .setProgressIndeterminate(true)
         } catch (_: Throwable) {
             null
         }
@@ -206,8 +187,7 @@ class CapsuleTestService : Service() {
 
     private fun ensureChannel(manager: NotificationManager) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val existing = manager.getNotificationChannel(CHANNEL_ID)
-        if (existing != null) return
+        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         val channel = NotificationChannel(
             CHANNEL_ID,
             getString(R.string.capsule_channel_name),
@@ -219,9 +199,9 @@ class CapsuleTestService : Service() {
         manager.createNotificationChannel(channel)
     }
 
-    private fun formatTime(seconds: Long): String {
-        val total = seconds.coerceAtLeast(0L)
-        return "%d:%02d".format(total / 60, total % 60)
+    /** Время окончания в локальном формате «HH:mm». */
+    private fun endTime(): String {
+        return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(endsAt))
     }
 
     companion object {
@@ -233,14 +213,11 @@ class CapsuleTestService : Service() {
         private const val CONTENT_REQUEST = 7414
         private const val STOP_REQUEST = 7415
 
-        private const val TICK_MILLIS = 1_000L
         private const val DURATION_MILLIS = 10 * 60 * 1_000L
-        private const val DURATION_SECONDS = 10 * 60L
 
         private const val EXTRA_REQUEST_PROMOTED_ONGOING =
             "android.requestPromotedOngoing"
 
         private val ACCENT = Color.parseColor("#5B5BD6")
-        private val POINT = Color.parseColor("#B4B4FF")
     }
 }

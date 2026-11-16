@@ -5,7 +5,7 @@
     <string name="widget_not_loaded">Расписание не загружено</string>
     <string name="capsule_title">Тест Капли</string>
     <string name="capsule_subtitle">Hash · Live Updates</string>
-    <string name="capsule_remaining">Осталось %1$s</string>
+    <string name="capsule_until">Обратный отсчёт до %1$s</string>
     <string name="capsule_stop">Остановить</string>
     <string name="capsule_channel_name">Тест Капли</string>
     <string name="capsule_channel_description">Постоянное уведомление с обратным отсчётом</string>

@@ -1,6 +1,6 @@
 # Hash — техническая логика приложения
 
-**Версия документа:** 1.1.8-experiment
+**Версия документа:** 1.1.9-experiment
 **Назначение:** описание фактической внутренней логики «Hash» (школьный трекер домашних заданий): разбор ввода, расчёт дедлайнов, жизненный цикл задачи, хранение и взаимодействие с интерфейсом.
 **Границы документа:** только реализованное поведение. Всё, что ещё не реализовано, помечено явно — раздел 5.
 
@@ -507,16 +507,19 @@ Live Updates Android 16, отдельная ветка поверх `main`. В `
              └─ CapsuleTestService: foreground + постоянное уведомление
                   ├─ setOngoing(true) → FLAG_ONGOING_EVENT
                   ├─ extra android.requestPromotedOngoing = true
+                  ├─ setColorized(true) — обязательное условие промоушена
+                  ├─ setWhen(endsAt) + setUsesChronometer + setChronometerCountDown
                   ├─ Notification.ProgressStyle + setShortCriticalText (API 36)
-                  └─ тик 1 с: прогресс, «Осталось m:ss», chronometer
+                  └─ один notify(); дальше секунды рисует система
 ```
 
 | Часть | Поведение |
 | --- | --- |
 | Разрешения | `POST_NOTIFICATIONS`, `POST_PROMOTED_NOTIFICATIONS`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`; `POST_NOTIFICATIONS` запрашивается при первом нажатии |
 | Канал `hash/capsule_test` | `startCapsule` → `promoted` / `legacy` / `permission`; `stopCapsule` → `stopped`; `capsuleStatus` → `sdkInt`, `canPromote`, `notificationsAllowed` |
-| Сервис | `CapsuleTestService`, `foregroundServiceType="specialUse"`, тип уведомления `CATEGORY_PROGRESS`, длительность 10 минут, тик 1 с |
-| Капля | Прогресс-стиль с сегментом и точками, короткий текст `m:ss` в статус-баре, обратный отсчёт `setChronometerCountDown` |
+| Сервис | `CapsuleTestService`, `foregroundServiceType="specialUse"`, тип уведомления `CATEGORY_PROGRESS`, длительность 10 минут |
+| Таймер | Один `notify()` на старте; секунды рисует системный `Chronometer` (`setUsesChronometer` + `setChronometerCountDown`, база — `setWhen(endsAt)`); повторных обновлений нет, поэтому текст не мерцает |
+| Капля | `setColorized(true)` + `setOngoing(true)` + extra `android.requestPromotedOngoing`, `Notification.ProgressStyle` (indeterminate), статичный `setShortCriticalText` с временем окончания |
 | Ограничения | Каплю рисует только Android 16 (API 36) и только при включённых promoted notifications; на более старых версиях остаётся обычное постоянное уведомление |
 | Доступ | `NotificationManager.canPostPromotedNotifications()` — статус показывается в `SnackBar` после запуска |
 
