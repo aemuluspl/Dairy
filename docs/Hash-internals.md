@@ -1,6 +1,6 @@
 # Hash — техническая логика приложения
 
-**Версия документа:** 1.1.7
+**Версия документа:** 1.1.8-experiment
 **Назначение:** описание фактической внутренней логики «Hash» (школьный трекер домашних заданий): разбор ввода, расчёт дедлайнов, жизненный цикл задачи, хранение и взаимодействие с интерфейсом.
 **Границы документа:** только реализованное поведение. Всё, что ещё не реализовано, помечено явно — раздел 5.
 
@@ -495,6 +495,30 @@ ScheduleWidgetProvider (Kotlin)
 | Тема | Цвета light/dark передаются из Flutter; в тёмной теме акценты `#FFFFFF`, в светлой — `#000000` |
 | Язык | Подписи переключаются флагом `english`, пустое состояние — ресурсом системы |
 | Устойчивость | Строгие проверки `SharedPreferences` (`String?`, пустота) и каждого поля JSON; `number: null`, пустая строка и 0 у РОВ дают урок без номера; всё тело `getViewAt` обёрнуто в `try/catch` и при сбое возвращает `widget_error_item` с текстом «Error» вместо системного «Couldn't add widget»; все ветки Kotlin обёрнуты в `try/catch`, при сбое — безопасный fallback «Расписание не загружено»; `setBackgroundResource` получает только drawable, не цвет |
+
+### 3.10 Эксперимент «Капля» (ветка `feature/capsule-test`)
+
+Live Updates Android 16, отдельная ветка поверх `main`. В `main` этого кода нет.
+
+```
+Кнопка «Тест Капли» (Settings → ЭКСПЕРИМЕНТ)
+   └─ MethodChannel('hash/capsule_test').startCapsule
+        └─ MainActivity: проверка POST_NOTIFICATIONS, startForegroundService
+             └─ CapsuleTestService: foreground + постоянное уведомление
+                  ├─ setOngoing(true) → FLAG_ONGOING_EVENT
+                  ├─ extra android.requestPromotedOngoing = true
+                  ├─ Notification.ProgressStyle + setShortCriticalText (API 36)
+                  └─ тик 1 с: прогресс, «Осталось m:ss», chronometer
+```
+
+| Часть | Поведение |
+| --- | --- |
+| Разрешения | `POST_NOTIFICATIONS`, `POST_PROMOTED_NOTIFICATIONS`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`; `POST_NOTIFICATIONS` запрашивается при первом нажатии |
+| Канал `hash/capsule_test` | `startCapsule` → `promoted` / `legacy` / `permission`; `stopCapsule` → `stopped`; `capsuleStatus` → `sdkInt`, `canPromote`, `notificationsAllowed` |
+| Сервис | `CapsuleTestService`, `foregroundServiceType="specialUse"`, тип уведомления `CATEGORY_PROGRESS`, длительность 10 минут, тик 1 с |
+| Капля | Прогресс-стиль с сегментом и точками, короткий текст `m:ss` в статус-баре, обратный отсчёт `setChronometerCountDown` |
+| Ограничения | Каплю рисует только Android 16 (API 36) и только при включённых promoted notifications; на более старых версиях остаётся обычное постоянное уведомление |
+| Доступ | `NotificationManager.canPostPromotedNotifications()` — статус показывается в `SnackBar` после запуска |
 
 ---
 

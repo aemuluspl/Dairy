@@ -388,6 +388,38 @@ class Strings {
 
   String tasksCount(int count) => '$count ${tasksWord(count)}';
 
+  // ---------------------------------------------------------------------------
+  // Эксперимент «Капля» (ветка feature/capsule-test)
+  // ---------------------------------------------------------------------------
+
+  String get experimentSection => _t('ЭКСПЕРИМЕНТ', 'EXPERIMENT');
+  String get capsuleTestButton => _t('Тест Капли', 'Capsule test');
+  String get capsuleTestStop => _t('Остановить', 'Stop');
+  String get capsuleTestSubtitle => _t(
+        'Постоянное уведомление Android 16 · Live Updates',
+        'Android 16 ongoing notification · Live Updates',
+      );
+  String get capsuleStartedPromoted => _t(
+        'Капля запрошена: система покажет уведомление с таймером.',
+        'Capsule requested: the timer notification is now promoted.',
+      );
+  String get capsuleStartedLegacy => _t(
+        'Уведомление с таймером запущено. Капля появится на Android 16.',
+        'Timer notification started. The capsule appears on Android 16.',
+      );
+  String get capsulePermission => _t(
+        'Разрешите уведомления и нажмите «Тест Капли» ещё раз.',
+        'Allow notifications and tap “Capsule test” again.',
+      );
+  String get capsuleStopped => _t(
+        'Тестовое уведомление остановлено.',
+        'Test notification stopped.',
+      );
+  String get capsuleUnavailable => _t(
+        'Эксперимент доступен только в Android-сборке.',
+        'The experiment is available in the Android build only.',
+      );
+
   String lessonsCount(int count) => '$count ${lessonsWord(count)}';
 
   String subjectsCount(int count) => '$count ${subjectsWord(count)}';

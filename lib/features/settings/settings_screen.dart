@@ -6,6 +6,7 @@ import '../../core/utils/max_width_box.dart';
 import '../../state/app_state.dart';
 import '../../widgets/pill_nav_bar.dart';
 import '../../widgets/top_bar.dart';
+import '../capsule/capsule_test_card.dart';
 import 'aliases_settings_screen.dart';
 import 'appearance_settings_screen.dart';
 import 'data_settings_screen.dart';
@@ -155,6 +156,10 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 18),
+                    SettingsSectionLabel(strings.experimentSection),
+                    const SizedBox(height: 8),
+                    CapsuleTestCard(strings: strings),
                     const SizedBox(height: 22),
                     Text(
                       strings.footerTitle(state.version),

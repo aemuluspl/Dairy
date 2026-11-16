@@ -3,6 +3,11 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Проверка обновлений через GitHub Releases API. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Эксперимент «Капля»: постоянное уведомление с таймером. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:label="Hash"
@@ -62,6 +67,20 @@
             android:name=".ScheduleWidgetService"
             android:permission="android.permission.BIND_REMOTEVIEWS"
             android:exported="false" />
+
+        <!--
+            Эксперимент «Капля»: foreground-сервис с постоянным
+            уведомлением и обратным отсчётом. specialUse — потому что
+            это тестовый сценарий live update, а не данные/медиа.
+        -->
+        <service
+            android:name=".CapsuleTestService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="live_updates_capsule_test" />
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

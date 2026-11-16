@@ -496,3 +496,20 @@ Hive), используйте **Hot Restart** (`R`).
 - iOS-виджет и Live Activity по тем же данным.
 - Поиск, фильтры по предметам, архив выполненных.
 - Модули «Заметки» и «Контакты PDB» на той же схеме.
+
+---
+
+## Эксперимент «Капля» (`feature/capsule-test`)
+
+Отдельная ветка поверх `main`: Android 16 Live Updates. В `main` этого кода
+нет, версия `1.1.8+13`.
+
+- Settings → «ЭКСПЕРИМЕНТ» → «Тест Капли» запускает нативный сервис через
+  `MethodChannel('hash/capsule_test')`.
+- `CapsuleTestService` держит foreground-уведомление с таймером на 10 минут:
+  `setOngoing(true)`, `CATEGORY_PROGRESS`, extra `android.requestPromotedOngoing`,
+  `Notification.ProgressStyle` и `setShortCriticalText` на API 36.
+- Каплю в статус-баре рисует только Android 16 при включённых promoted
+  notifications; на остальных версиях остаётся обычное постоянное уведомление.
+- «Остановить» в карточке или в самом уведомлении завершает сервис.
+
