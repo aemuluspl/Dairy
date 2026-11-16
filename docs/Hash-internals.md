@@ -1,6 +1,6 @@
 # Hash — техническая логика приложения
 
-**Версия документа:** 1.1.9-experiment
+**Версия документа:** 1.1.10-experiment
 **Назначение:** описание фактической внутренней логики «Hash» (школьный трекер домашних заданий): разбор ввода, расчёт дедлайнов, жизненный цикл задачи, хранение и взаимодействие с интерфейсом.
 **Границы документа:** только реализованное поведение. Всё, что ещё не реализовано, помечено явно — раздел 5.
 
@@ -507,9 +507,9 @@ Live Updates Android 16, отдельная ветка поверх `main`. В `
              └─ CapsuleTestService: foreground + постоянное уведомление
                   ├─ setOngoing(true) → FLAG_ONGOING_EVENT
                   ├─ extra android.requestPromotedOngoing = true
-                  ├─ setColorized(true) — обязательное условие промоушена
+                  ├─ без setColorized(true): Realme UI ломает Островок
                   ├─ setWhen(endsAt) + setUsesChronometer + setChronometerCountDown
-                  ├─ Notification.ProgressStyle + setShortCriticalText (API 36)
+                  ├─ без ProgressStyle: только setShortCriticalText (API 36)
                   └─ один notify(); дальше секунды рисует система
 ```
 
@@ -519,7 +519,8 @@ Live Updates Android 16, отдельная ветка поверх `main`. В `
 | Канал `hash/capsule_test` | `startCapsule` → `promoted` / `legacy` / `permission`; `stopCapsule` → `stopped`; `capsuleStatus` → `sdkInt`, `canPromote`, `notificationsAllowed` |
 | Сервис | `CapsuleTestService`, `foregroundServiceType="specialUse"`, тип уведомления `CATEGORY_PROGRESS`, длительность 10 минут |
 | Таймер | Один `notify()` на старте; секунды рисует системный `Chronometer` (`setUsesChronometer` + `setChronometerCountDown`, база — `setWhen(endsAt)`); повторных обновлений нет, поэтому текст не мерцает |
-| Капля | `setColorized(true)` + `setOngoing(true)` + extra `android.requestPromotedOngoing`, `Notification.ProgressStyle` (indeterminate), статичный `setShortCriticalText` с временем окончания |
+| Капля | `setOngoing(true)` + extra `android.requestPromotedOngoing`, статичный `setShortCriticalText` с временем окончания; без `setColorized` и без `ProgressStyle` — так Островок работает на Realme UI 7 / ColorOS |
+| Совместимость | `setColorized(true)` и `ProgressStyle` с indeterminate-прогрессом на Realme UI 7 превращали уведомление в большой цветной блок и полностью убирали Островок; оба параметра удалены начиная с 1.1.10 |
 | Ограничения | Каплю рисует только Android 16 (API 36) и только при включённых promoted notifications; на более старых версиях остаётся обычное постоянное уведомление |
 | Доступ | `NotificationManager.canPostPromotedNotifications()` — статус показывается в `SnackBar` после запуска |
 

@@ -502,14 +502,15 @@ Hive), используйте **Hot Restart** (`R`).
 ## Эксперимент «Капля» (`feature/capsule-test`)
 
 Отдельная ветка поверх `main`: Android 16 Live Updates. В `main` этого кода
-нет, версия `1.1.8+13`.
+нет, версия `1.1.10+15`.
 
 - Settings → «ЭКСПЕРИМЕНТ» → «Тест Капли» запускает нативный сервис через
   `MethodChannel('hash/capsule_test')`.
 - `CapsuleTestService` держит foreground-уведомление с таймером на 10 минут:
-  `setOngoing(true)`, `setColorized(true)`, `CATEGORY_PROGRESS`, extra
-  `android.requestPromotedOngoing`, `Notification.ProgressStyle` и
-  `setShortCriticalText` на API 36.
+  `setOngoing(true)`, `CATEGORY_PROGRESS`, extra `android.requestPromotedOngoing`
+  и `setShortCriticalText` на API 36. Уведомление намеренно без
+  `setColorized(true)` и без `ProgressStyle`: Realme UI / ColorOS из-за них
+  разворачивают его в огромный блок и не показывают Островок.
 - Секунды считает системный `Chronometer` (`setWhen(endsAt)` +
   `setUsesChronometer` + `setChronometerCountDown`): уведомление публикуется
   один раз, без ежесекундных `notify()`, поэтому таймер не мерцает.

@@ -25,6 +25,12 @@ import java.util.Locale
  * + база `setWhen(endsAt)`). Сервис больше не вызывает `notify()` каждую
  * секунду, поэтому текстовый блок не перерисовывается и не мерцает.
  *
+ * Уведомление намеренно стандартное: без `setColorized(true)` и без
+ * `ProgressStyle`. Оболочки Realme UI / ColorOS превращают цветные и
+ * бесконечно-прогрессовые уведомления в большой блок в шторке и перестают
+ * выводить Островок, поэтому остаются только `Chronometer`, короткий
+ * системный текст и обычный (не цветной) фон.
+ *
  * Ветка экспериментальная: сервис запускается только кнопкой «Тест Капли»
  * в настройках.
  */
@@ -98,10 +104,9 @@ class CapsuleTestService : Service() {
             .setContentText(getString(R.string.capsule_until, endTime()))
             .setSubText(getString(R.string.capsule_subtitle))
             .setColor(ACCENT)
-            // Без colorized система не считает уведомление кандидатом
-            // в каплю: hasPromotableCharacteristics() требует
-            // isColorizedRequested() && isOngoingEvent() && hasTitle().
-            .setColorized(true)
+            // Без setColorized(true): Realme UI / ColorOS перестают
+            // показывать Островок для цветных уведомлений и разворачивают
+            // их в огромный блок в шторке. Фон остаётся системным.
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setAutoCancel(false)
@@ -121,29 +126,11 @@ class CapsuleTestService : Service() {
         }
 
         if (Build.VERSION.SDK_INT >= 36) {
-            progressStyle()?.let { style -> builder.setStyle(style) }
             // Статичный короткий текст капсулы: время окончания.
             builder.setShortCriticalText(endTime())
         }
 
         return builder.build()
-    }
-
-    /**
-     * Полоса прогресса анимируется системой (indeterminate), поэтому
-     * приложению не нужно присылать обновления ради её движения.
-     * Стиль при этом остаётся `ProgressStyle` — он входит в
-     * `hasPromotableStyle()`.
-     */
-    private fun progressStyle(): Notification.ProgressStyle? {
-        if (Build.VERSION.SDK_INT < 36) return null
-        return try {
-            Notification.ProgressStyle()
-                .setStyledByProgress(false)
-                .setProgressIndeterminate(true)
-        } catch (_: Throwable) {
-            null
-        }
     }
 
     /**

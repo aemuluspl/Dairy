@@ -5,7 +5,7 @@
 class AppInfo {
   const AppInfo._();
 
-  static const String version = '1.1.9';
+  static const String version = '1.1.10';
   static const String repoOwner = 'aemuluspl';
   static const String repoName = 'Dairy';
 
