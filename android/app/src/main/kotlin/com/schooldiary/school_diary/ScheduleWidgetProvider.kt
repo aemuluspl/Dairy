@@ -34,10 +34,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
         appWidgetIds.forEach { id ->
             updateSafely(context, appWidgetManager, id)
         }
-        appWidgetManager.notifyAppWidgetViewDataChanged(
-            appWidgetIds,
-            R.id.widget_list,
-        )
+        notifySafely(context, appWidgetIds)
         scheduleNextUpdate(context)
     }
 
@@ -94,7 +91,17 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
         ids.forEach { id ->
             updateSafely(context, manager, id)
         }
-        manager.notifyAppWidgetViewDataChanged(ids, R.id.widget_list)
+        notifySafely(context, ids)
+    }
+
+    /** Обновление списка не должно ронять процесс лаунчера. */
+    private fun notifySafely(context: Context, ids: IntArray) {
+        try {
+            AppWidgetManager.getInstance(context)
+                .notifyAppWidgetViewDataChanged(ids, R.id.widget_list)
+        } catch (_: Throwable) {
+            // Список мог ещё не подключиться — шапка уже отрисована.
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -110,7 +117,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
             buildViews(context, widgetId)
         } catch (_: Throwable) {
             fallbackViews(context)
-        }
+        } ?: return
         try {
             manager.updateAppWidget(widgetId, views)
         } catch (_: Throwable) {
@@ -170,10 +177,10 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
         return views
     }
 
-    /** Минимальный безопасный виджет: шапка и «Нет данных». */
-    private fun fallbackViews(context: Context): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.schedule_widget)
+    /** Минимальный безопасный виджет: шапка и «Расписание не загружено». */
+    private fun fallbackViews(context: Context): RemoteViews? {
         return try {
+            val views = RemoteViews(context.packageName, R.layout.schedule_widget)
             val dark = ScheduleWidgetData.systemDark(context)
             views.setInt(
                 R.id.widget_root,
@@ -191,7 +198,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_note, "")
             views.setTextViewText(
                 R.id.widget_empty,
-                context.getString(R.string.widget_no_data),
+                context.getString(R.string.widget_not_loaded),
             )
             views.setTextColor(
                 R.id.widget_empty,
@@ -202,7 +209,7 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
             attachClick(context, views)
             views
         } catch (_: Throwable) {
-            views
+            null
         }
     }
 

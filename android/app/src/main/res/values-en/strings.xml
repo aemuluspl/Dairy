@@ -2,5 +2,5 @@
 <resources>
     <string name="widget_title">Hash · Schedule</string>
     <string name="widget_description">Today’s lessons and the time left in class</string>
-    <string name="widget_no_data">No data</string>
+    <string name="widget_not_loaded">Schedule not loaded</string>
 </resources>

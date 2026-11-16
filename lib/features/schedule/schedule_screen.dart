@@ -102,7 +102,12 @@ class ScheduleScreen extends StatelessWidget {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
+                        // Кнопка должна подниматься над прозрачным навбаром:
+                        // body идёт под него из-за extendBody, поэтому высота
+                        // капсулы + системный Navigation Bar учитываются здесь.
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.paddingOf(context).bottom + 80,
+                        ),
                         child: SizedBox(
                           width: double.infinity,
                           height: 52,

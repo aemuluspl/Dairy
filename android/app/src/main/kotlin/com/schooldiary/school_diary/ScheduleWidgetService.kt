@@ -47,7 +47,7 @@ class ScheduleWidgetFactory(
         } catch (_: Throwable) {
             ScheduleWidgetData.Snapshot(
                 title = context.getString(R.string.widget_title),
-                emptyText = context.getString(R.string.widget_no_data),
+                emptyText = context.getString(R.string.widget_not_loaded),
                 dark = ScheduleWidgetData.systemDark(context),
                 rows = emptyList(),
             )

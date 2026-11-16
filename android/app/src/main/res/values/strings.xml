@@ -2,5 +2,5 @@
 <resources>
     <string name="widget_title">Hash · Расписание</string>
     <string name="widget_description">Уроки на сегодня и время до конца урока</string>
-    <string name="widget_no_data">Нет данных</string>
+    <string name="widget_not_loaded">Расписание не загружено</string>
 </resources>

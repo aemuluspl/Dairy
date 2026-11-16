@@ -66,7 +66,7 @@ object ScheduleWidgetData {
         } catch (_: Throwable) {
             Snapshot(
                 title = context.getString(R.string.widget_title),
-                emptyText = context.getString(R.string.widget_no_data),
+                emptyText = context.getString(R.string.widget_not_loaded),
                 dark = systemDark(context),
                 rows = emptyList(),
             )
@@ -81,7 +81,19 @@ object ScheduleWidgetData {
         if (payload == null) {
             return Snapshot(
                 title = context.getString(R.string.widget_title),
-                emptyText = context.getString(R.string.widget_no_data),
+                emptyText = context.getString(R.string.widget_not_loaded),
+                dark = dark,
+                rows = emptyList(),
+            )
+        }
+
+        // Пустая база или сброшенное расписание: ни одного урока нет ни в
+        // одном дне. Показываем статичное состояние вместо пустого списка.
+        val hasAnyLessons = payload.lessonsByDay.values.any { it.isNotEmpty() }
+        if (!hasAnyLessons) {
+            return Snapshot(
+                title = context.getString(R.string.widget_title),
+                emptyText = context.getString(R.string.widget_not_loaded),
                 dark = dark,
                 rows = emptyList(),
             )
@@ -168,51 +180,43 @@ object ScheduleWidgetData {
     fun readPayload(context: Context): Payload? {
         return try {
             val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            val raw = prefs.getString(DATA_KEY, null)
-                ?.takeIf { it.isNotBlank() }
-                ?: return null
+            // Жёсткая проверка типа и пустоты: после сброса расписания или
+            // первого запуска ключа может не быть вовсе.
+            val raw = prefs.all[DATA_KEY] as? String
+            if (raw.isNullOrBlank()) return null
             val root = JSONObject(raw)
-            val daysJson = root.optJSONObject("days")
+            val daysJson = root.optJSONObject("days") ?: return null
             val placeholderSubject = Labels(
                 root.optBoolean("english", false),
             ).placeholderSubject
             val byDay = HashMap<Int, List<Lesson>>()
-            if (daysJson != null) {
-                for (day in 1..7) {
-                    val array = daysJson.optJSONArray(day.toString()) ?: continue
-                    val lessons = ArrayList<Lesson>(array.length())
-                    for (index in 0 until array.length()) {
-                        val item = array.optJSONObject(index) ?: continue
-                        val startText = item.optString("start", "08:00")
-                        val endText = item.optString("end", "08:40")
-                        val number = if (item.isNull("number")) {
-                            null
-                        } else {
-                            item.optInt("number", -1).takeIf { it > 0 }
-                        }
-                        val roomRaw = item.opt("room")
-                        val room = if (roomRaw == null || roomRaw == JSONObject.NULL) {
-                            null
-                        } else {
-                            roomRaw.toString().trim().takeIf { it.isNotEmpty() }
-                        }
-                        val subject = item.optString("subject", "").trim()
-                            .ifEmpty { placeholderSubject }
-                        lessons.add(
-                            Lesson(
-                                subject = subject,
-                                start = minutesOf(startText),
-                                end = minutesOf(endText),
-                                startText = startText,
-                                endText = endText,
-                                room = room,
-                                number = number,
-                            ),
-                        )
-                    }
-                    lessons.sortBy { it.start }
-                    byDay[day] = lessons
+            for (day in 1..7) {
+                val array = daysJson.optJSONArray(day.toString()) ?: continue
+                val lessons = ArrayList<Lesson>(array.length())
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: continue
+                    val startText = stringOrNull(item.opt("start")) ?: "08:00"
+                    val endText = stringOrNull(item.opt("end")) ?: "08:40"
+                    // «number» может прийти как null, строкой, пустой строкой
+                    // или отсутствовать — уроки вроде РОВ остаются без номера.
+                    val number = parseNumberOrNull(item.opt("number"))
+                    val room = stringOrNull(item.opt("room"))
+                    val subject = stringOrNull(item.opt("subject"))
+                        ?: placeholderSubject
+                    lessons.add(
+                        Lesson(
+                            subject = subject,
+                            start = minutesOf(startText),
+                            end = minutesOf(endText),
+                            startText = startText,
+                            endText = endText,
+                            room = room,
+                            number = number,
+                        ),
+                    )
                 }
+                lessons.sortBy { it.start }
+                byDay[day] = lessons
             }
             Payload(
                 lessonsByDay = byDay,
@@ -371,6 +375,23 @@ object ScheduleWidgetData {
         val minutes = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: return null
         if (hours !in 0..23 || minutes !in 0..59) return null
         return hours * 60 + minutes
+    }
+
+    /** JSON-значение → непустая строка либо null (включая `JSONObject.NULL`). */
+    private fun stringOrNull(value: Any?): String? {
+        if (value == null || value == JSONObject.NULL) return null
+        return value.toString().trim().takeIf { it.isNotEmpty() }
+    }
+
+    /** Номер урока: null, пустая строка, 0 и отрицательные → null. */
+    private fun parseNumberOrNull(value: Any?): Int? {
+        if (value == null || value == JSONObject.NULL) return null
+        val number = when (value) {
+            is Number -> value.toInt()
+            is String -> value.trim().toIntOrNull()
+            else -> value.toString().trim().toIntOrNull()
+        } ?: return null
+        return number.takeIf { it > 0 }
     }
 
     private fun minutesOf(value: String): Int {

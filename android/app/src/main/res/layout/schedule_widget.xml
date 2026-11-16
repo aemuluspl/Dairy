@@ -71,7 +71,7 @@
             android:gravity="center"
             android:paddingStart="8dp"
             android:paddingEnd="8dp"
-            android:text="@string/widget_no_data"
+            android:text="@string/widget_not_loaded"
             android:textColor="@color/widget_text_muted"
             android:textSize="12sp"
             android:textStyle="bold"

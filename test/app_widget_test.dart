@@ -415,6 +415,24 @@ void main() {
     expect(state.schedule.values.every((day) => day.isEmpty), isTrue);
     expect(state.customAliases, isEmpty);
 
+    // Пустое состояние Schedule: кнопка должна быть над прозрачным навбаром,
+    // а не под ним.
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(PillNavBar),
+        matching: find.text('Schedule'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final addButton = find.widgetWithText(FilledButton, 'Добавить урок');
+    expect(addButton, findsOneWidget);
+    final buttonRect = tester.getRect(addButton);
+    final navRect = tester.getRect(find.byType(PillNavBar));
+    expect(buttonRect.bottom, lessThanOrEqualTo(navRect.top));
+
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
   });
