@@ -5,9 +5,8 @@ import '../../core/i18n/app_strings.dart';
 import '../../data/models/nav_bar_style.dart';
 import '../../state/app_state.dart';
 import 'settings_common.dart';
-import 'widget_settings_screen.dart';
 
-/// Оформление: тема, язык, стиль навигации и настройки виджета.
+/// Оформление: тема, язык и стиль навигации.
 class AppearanceSettingsScreen extends StatelessWidget {
   const AppearanceSettingsScreen({super.key});
 
@@ -108,22 +107,6 @@ class AppearanceSettingsScreen extends StatelessWidget {
                   icon: Icons.blur_on_rounded,
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          SettingsSectionLabel(strings.widgetSection),
-          const SizedBox(height: 8),
-          SettingsCard(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            child: SettingsMenuTile(
-              icon: Icons.widgets_rounded,
-              title: strings.settingsWidget,
-              subtitle: strings.settingsWidgetSubtitle,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const WidgetSettingsScreen(),
-                ),
-              ),
             ),
           ),
         ],

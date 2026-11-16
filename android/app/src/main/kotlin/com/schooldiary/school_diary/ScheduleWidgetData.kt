@@ -46,6 +46,8 @@ object ScheduleWidgetData {
         val time: String?,
         val style: RowStyle,
         val number: Int?,
+        /** «NEXT» / «СЛЕД» у следующего урока, у остальных строк null. */
+        val badgeText: String? = null,
     )
 
     /** Готовый к отрисовке снимок: шапка, пустое состояние и строки. */
@@ -54,6 +56,8 @@ object ScheduleWidgetData {
         val emptyText: String,
         val dark: Boolean,
         val rows: List<Row>,
+        /** Индекс строки, которую нужно показать первой в видимой области. */
+        val scrollPosition: Int = 0,
     )
 
     // ---------------------------------------------------------------------
@@ -106,30 +110,95 @@ object ScheduleWidgetData {
             calendar.get(Calendar.MINUTE)
         // Отладочная симуляция времени важнее системных часов.
         val nowMinutes = payload.simulatedMinutes ?: systemMinutes
-        val dayOff = day == 7 || (payload.saturdayOff && day == 6)
+        val dayOff = isDayOff(day, payload)
         val lessons = if (dayOff) {
             emptyList()
         } else {
             payload.lessonsByDay[day] ?: emptyList()
         }
+        val todayTitle = "${labels.today} · ${labels.dayName(day)}"
 
-        val title = "${labels.today} · ${labels.dayName(day)}"
-
-        if (lessons.isEmpty()) {
+        if (dayOff) {
             return Snapshot(
-                title = title,
-                emptyText = if (dayOff) labels.dayOff else labels.noLessons,
+                title = todayTitle,
+                emptyText = labels.dayOff,
                 dark = dark,
                 rows = emptyList(),
             )
         }
 
+        if (lessons.isEmpty()) {
+            return Snapshot(
+                title = todayTitle,
+                emptyText = labels.noLessons,
+                dark = dark,
+                rows = emptyList(),
+            )
+        }
+
+        // Последний урок сегодня уже закончился: показываем расписание
+        // следующего учебного дня, а не пустой вечер. Время для такого дня
+        // отрицательное, поэтому первый урок сразу получает стиль NEXT.
+        if (nowMinutes > lessons.maxOf { it.end }) {
+            val upcoming = upcomingDay(payload, day)
+            if (upcoming != null) {
+                val prefix = if (upcoming.offset == 1) {
+                    labels.tomorrow
+                } else {
+                    labels.upcoming
+                }
+                return Snapshot(
+                    title = "$prefix · ${labels.dayName(upcoming.day)}",
+                    emptyText = "",
+                    dark = dark,
+                    rows = buildLessonRows(
+                        upcoming.lessons,
+                        -1,
+                        payload.showRooms,
+                        labels,
+                    ),
+                    scrollPosition = 0,
+                )
+            }
+        }
+
+        val rows = buildLessonRows(lessons, nowMinutes, payload.showRooms, labels)
         return Snapshot(
-            title = title,
+            title = todayTitle,
             emptyText = "",
             dark = dark,
-            rows = buildLessonRows(lessons, nowMinutes, payload.showRooms, labels),
+            rows = rows,
+            scrollPosition = scrollPositionOf(rows),
         )
+    }
+
+    /** Ближайший непустой учебный день в пределах недели вперёд. */
+    private data class Upcoming(
+        val day: Int,
+        val offset: Int,
+        val lessons: List<Lesson>,
+    )
+
+    private fun upcomingDay(payload: Payload, fromDay: Int): Upcoming? {
+        for (offset in 1..7) {
+            val day = ((fromDay - 1 + offset) % 7) + 1
+            if (isDayOff(day, payload)) continue
+            val lessons = payload.lessonsByDay[day].orEmpty()
+            if (lessons.isEmpty()) continue
+            return Upcoming(day, offset, lessons)
+        }
+        return null
+    }
+
+    private fun isDayOff(day: Int, payload: Payload): Boolean =
+        day == 7 || (payload.saturdayOff && day == 6)
+
+    /** Текущий урок — вверху списка; если его нет, то следующий. */
+    private fun scrollPositionOf(rows: List<Row>): Int {
+        val current = rows.indexOfFirst { it.style == RowStyle.CURRENT }
+        if (current >= 0) return current
+        val next = rows.indexOfFirst { it.style == RowStyle.NEXT }
+        return if (next >= 0) next else 0
     }
 
     private fun buildLessonRows(
@@ -166,6 +235,7 @@ object ScheduleWidgetData {
                     labels.interval(lesson.startText, lesson.endText),
                     style,
                     lesson.number,
+                    if (style == RowStyle.NEXT) labels.nextBadge else null,
                 ),
             )
         }
@@ -322,6 +392,13 @@ object ScheduleWidgetData {
         RowStyle.PAST, RowStyle.NORMAL -> R.drawable.widget_row_transparent
     }
 
+    /** Фон плашки «NEXT» / «СЛЕД»: инверсная пара к акценту. */
+    fun badgeBackground(dark: Boolean): Int = if (dark) {
+        R.drawable.widget_badge_dark
+    } else {
+        R.drawable.widget_badge_light
+    }
+
     fun nameColor(style: RowStyle, dark: Boolean): Int {
         val primary = primary(dark)
         return when (style) {
@@ -409,9 +486,12 @@ object ScheduleWidgetData {
     /** Подписи, зависящие от выбранного в приложении языка. */
     class Labels(private val english: Boolean) {
         val today: String get() = if (english) "Today" else "Сегодня"
+        val tomorrow: String get() = if (english) "Tomorrow" else "Завтра"
+        val upcoming: String get() = if (english) "Next up" else "Далее"
         val dayOff: String get() = if (english) "Day off" else "Выходной"
         val noLessons: String
             get() = if (english) "No lessons today" else "Сегодня уроков нет"
+        val nextBadge: String get() = if (english) "NEXT" else "СЛЕД"
         val placeholderSubject: String
             get() = if (english) "Lesson" else "Предмет"
 

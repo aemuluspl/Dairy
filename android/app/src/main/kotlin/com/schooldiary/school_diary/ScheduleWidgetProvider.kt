@@ -171,6 +171,19 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                 R.id.widget_list,
                 launchIntent(context, templateFlags()),
             )
+            // Текущий урок должен оказаться первым в видимой области.
+            // setScrollPosition появился только в Android 12 (API 31).
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    views.setScrollPosition(
+                        R.id.widget_list,
+                        snapshot.scrollPosition,
+                    )
+                } catch (_: Throwable) {
+                    // Прокрутка — необязательная деталь: список всё равно
+                    // покажется с начала.
+                }
+            }
         }
 
         attachClick(context, views)

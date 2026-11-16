@@ -350,9 +350,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Оформление'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Настройки виджета'));
+    // «Настройки виджета» — карточка прямо в корне Settings.
+    final widgetCard = find.text('Настройки виджета');
+    for (var attempt = 0; attempt < 4; attempt++) {
+      if (widgetCard.evaluate().isNotEmpty) break;
+      await tester.drag(find.byType(SettingsScreen), const Offset(0, -220));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(widgetCard);
     await tester.pumpAndSettle();
 
     expect(find.text('Симуляция дня'), findsOneWidget);

@@ -202,7 +202,6 @@ class Strings {
   String get settingsAppearanceSubtitle =>
       _t('Тема, язык и навигация', 'Theme, language and navigation');
   String get schoolSection => _t('ШКОЛА', 'SCHOOL');
-  String get widgetSection => _t('ВИДЖЕТ', 'WIDGET');
   String get themeTitle => _t('Тема', 'Theme');
   String get navBarTitle => _t('Стиль навигации', 'Navigation style');
   String get navBarClassic => _t('Классический', 'Classic');

@@ -12,6 +12,7 @@ import 'data_settings_screen.dart';
 import 'schedule_settings_screen.dart';
 import 'settings_common.dart';
 import 'update_settings_screen.dart';
+import 'widget_settings_screen.dart';
 
 /// Настройки: три смысловые группы и отдельная карточка обновления.
 class SettingsScreen extends StatelessWidget {
@@ -61,6 +62,22 @@ class SettingsScreen extends StatelessWidget {
                         onTap: () => _open(
                           context,
                           const AppearanceSettingsScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SettingsCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      child: SettingsMenuTile(
+                        icon: Icons.widgets_rounded,
+                        title: strings.settingsWidget,
+                        subtitle: strings.settingsWidgetSubtitle,
+                        onTap: () => _open(
+                          context,
+                          const WidgetSettingsScreen(),
                         ),
                       ),
                     ),

@@ -116,13 +116,34 @@ class ScheduleWidgetFactory(
             views.setTextColor(R.id.widget_item_time, timeColor)
         }
 
-        // number приходит из JSON как null у уроков вроде РОВ.
-        if (!isBreak && number != null) {
+        // number приходит из JSON как null у уроков вроде РОВ. Ширина номера
+        // фиксированная, поэтому INVISIBLE сохраняет вертикаль названий.
+        if (isBreak) {
+            views.setViewVisibility(R.id.widget_item_number, View.GONE)
+        } else if (number == null) {
+            views.setViewVisibility(R.id.widget_item_number, View.INVISIBLE)
+        } else {
             views.setViewVisibility(R.id.widget_item_number, View.VISIBLE)
             views.setTextViewText(R.id.widget_item_number, number.toString())
             views.setTextColor(R.id.widget_item_number, timeColor)
+        }
+
+        // Бейдж «NEXT» / «СЛЕД» вместо прежней обводки строки.
+        val badge = row.badgeText
+        if (!isBreak && !badge.isNullOrBlank()) {
+            views.setViewVisibility(R.id.widget_item_badge, View.VISIBLE)
+            views.setTextViewText(R.id.widget_item_badge, badge)
+            views.setTextColor(
+                R.id.widget_item_badge,
+                ScheduleWidgetData.onAccent(dark),
+            )
+            views.setInt(
+                R.id.widget_item_badge,
+                "setBackgroundResource",
+                ScheduleWidgetData.badgeBackground(dark),
+            )
         } else {
-            views.setViewVisibility(R.id.widget_item_number, View.GONE)
+            views.setViewVisibility(R.id.widget_item_badge, View.GONE)
         }
 
         // Вертикальная черта как на экране расписания.

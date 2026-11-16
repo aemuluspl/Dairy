@@ -17,9 +17,9 @@
     <color name="widget_on_accent_light">#FFFFFF</color>
     <color name="widget_on_accent_dark">#000000</color>
 
-    <!-- Обводка следующего урока: 100% непрозрачная, без полутонов. -->
-    <color name="widget_stroke_light">#000000</color>
-    <color name="widget_stroke_dark">#FFFFFF</color>
+    <!-- Мягкая заливка следующего урока (вместо обводки). -->
+    <color name="widget_fill_light">#F4F4F5</color>
+    <color name="widget_fill_dark">#27272A</color>
 
     <!-- Вертикальная черта урока, как на экране расписания. -->
     <color name="widget_stripe_light">#18181B</color>
